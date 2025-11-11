@@ -6,8 +6,58 @@ root = true
 [*]
 charset = utf-8
 end_of_line = lf
-indent_size = 4
+indent_size = 2
 indent_style = space
 insert_final_newline = true
 max_line_length = 120
-tab_width = 4
+tab_width = 42
+
+# --- JavaScript / JSX ---
+[*.js]
+indent_size = 2
+indent_style = space
+trim_trailing_whitespace = true
+
+[*.jsx]
+indent_size = 2
+indent_style = space
+trim_trailing_whitespace = true
+
+# --- TypeScript / TSX ---
+[*.ts]
+indent_size = 2
+indent_style = space
+trim_trailing_whitespace = true
+
+[*.tsx]
+indent_size = 2
+indent_style = space
+trim_trailing_whitespace = true
+
+# --- JSON ---
+[*.json]
+indent_style = space
+indent_size = 2
+tab_width = 2
+
+# --- YAML ---
+[*.yml]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = true
+
+[*.yaml]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = true
+
+# --- Project files ---
+[package.json]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false
+
+[*.lock]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false
