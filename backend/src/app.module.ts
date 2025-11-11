@@ -5,13 +5,22 @@ import { redisStore } from 'cache-manager-redis-store';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    
     // ConfigModule
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({ isGlobal: true }),
+
     // Connect to MongoDB database
-    MongooseModule.forRoot(process.env.MONGO_URI || "mongodb://localhost:27017/nestdb", {}),
+    MongooseModule.forRoot(
+      process.env.MONGO_URI || 'mongodb://root:secret@localhost:27017/EduVerse?authSource=admin', {
+        
+      }
+    ),
+
     // Connect to Redis
     CacheModule.registerAsync({
       useFactory: async () => ({
@@ -25,6 +34,10 @@ import { ConfigModule } from '@nestjs/config';
       }),
       isGlobal: true,
     }),
+
+    // Modules
+    AuthModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
