@@ -9,6 +9,6 @@ export class SchoolsController {
     @Get('/search')
     @HttpCode(HttpStatus.OK)
     async searchSchoolsByRadius(@Request() req, @Query('r') radius = 3) {
-        return this.schoolsService.searchSchoolsByRadius(req, +radius)
+        return this.schoolsService.searchSchoolsByRadius(req, radius)
     }
 }

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { School } from 'src/database/School';
@@ -13,6 +13,16 @@ export class SchoolsService {
 
         const lat = parseFloat(latitude);
         const lon = parseFloat(longitude);
+        const r = Number(radius);
+
+        if (
+            isNaN(lat) || isNaN(lon) ||
+            lat < -90 || lat > 90 ||
+            lon < -180 || lon > 180 ||
+            isNaN(r) || r <= 0
+        ) {
+            throw new BadRequestException('Nie prawidłowe koordynaty');
+        }
 
         const schools = await this.schoolModel.aggregate([
         {
@@ -57,6 +67,13 @@ export class SchoolsService {
         {
             $sort: { distanceKm: 1 },
         },
+        {
+            $project: {
+                name: 1,
+                _id: 1,
+                img: 1
+            }
+        }
         ]);
 
         return schools;
