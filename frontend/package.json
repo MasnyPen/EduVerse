@@ -14,9 +14,14 @@
     "axios": "^1.13.2",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.553.0",
+    "maplibre-gl": "^5.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "tailwindcss": "^4.1.17"
+    "react-router-dom": "^6.28.0",
+    "tailwind-merge": "^2.5.2",
+    "tailwindcss": "^4.1.17",
+    "webxr-polyfill": "^1.0.0",
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

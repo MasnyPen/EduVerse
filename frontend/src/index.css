@@ -1,70 +1,149 @@
 @import "tailwindcss";
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    color: #0f172a;
+    background-color: #f8fafc;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+* {
+    box-sizing: border-box;
 }
-a:hover {
-  color: #535bf2;
+
+html,
+body,
+#root {
+    height: 100%;
 }
 
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+    margin: 0;
+    background-color: #f1f5f9;
+    color: inherit;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+a {
+    color: inherit;
+    text-decoration: none;
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+    font-family: inherit;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.eduverse-marker {
+    --marker-scale: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    padding: 6px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.94);
+    border: 2px solid rgba(14, 165, 233, 0.55);
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.28);
+    transform: translate(-50%, calc(-100% + 10px)) scale(var(--marker-scale));
+    transform-origin: 50% 100%;
+    cursor: pointer;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    backdrop-filter: blur(8px);
+}
+
+.eduverse-marker:hover {
+    transform: translate(-50%, calc(-100% + 10px)) scale(calc(var(--marker-scale) * 1.05));
+    box-shadow: 0 18px 40px rgba(30, 64, 175, 0.32);
+}
+
+.eduverse-marker__icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 9999px;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.9), rgba(56, 189, 248, 0.9));
+}
+
+.eduverse-marker__icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.eduverse-marker__halo {
+    position: absolute;
+    inset: 6px;
+    border-radius: 9999px;
+    border: 1px dashed rgba(148, 163, 184, 0.45);
+    pointer-events: none;
+}
+
+.eduverse-marker--liked {
+    border-color: rgba(244, 63, 94, 0.65);
+    box-shadow: 0 20px 44px rgba(244, 63, 94, 0.38);
+}
+
+.eduverse-marker--unlocked {
+    border-color: rgba(245, 158, 11, 0.68);
+    box-shadow: 0 22px 48px rgba(245, 158, 11, 0.4);
+}
+
+@keyframes eduverse-marker-pop {
+    0% {
+        transform: translate(-50%, calc(-100% + 10px)) scale(var(--marker-scale));
+    }
+    45% {
+        transform: translate(-50%, calc(-100% + 10px)) scale(calc(var(--marker-scale) * 1.25));
+    }
+    100% {
+        transform: translate(-50%, calc(-100% + 10px)) scale(var(--marker-scale));
+    }
+}
+
+.eduverse-marker--just-unlocked {
+    animation: eduverse-marker-pop 0.9s ease;
+}
+
+.eduverse-user-marker {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    border-radius: 9999px;
+    background: radial-gradient(circle at 30% 30%, #38bdf8 0%, #0ea5e9 55%, #0369a1 100%);
+    border: 3px solid #ffffff;
+    box-shadow: 0 10px 28px rgba(14, 165, 233, 0.4);
+    transform: translate(-50%, -50%);
+}
+
+.eduverse-user-marker__pulse {
+    position: absolute;
+    inset: -10px;
+    border-radius: 9999px;
+    border: 2px solid rgba(14, 165, 233, 0.45);
+    pointer-events: none;
+    animation: eduverse-user-pulse 2.4s ease-out infinite;
+}
+
+@keyframes eduverse-user-pulse {
+    0% {
+        opacity: 0.7;
+        transform: scale(0.55);
+    }
+    70% {
+        opacity: 0;
+        transform: scale(1.55);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.55);
+    }
 }

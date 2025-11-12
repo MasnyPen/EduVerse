@@ -1,0 +1,829 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import "maplibre-gl/dist/maplibre-gl.css";
+import {
+  LngLatBounds,
+  Map as MapLibreMap,
+  Marker,
+  NavigationControl,
+  type LayerSpecification,
+  type StyleSpecification,
+} from "maplibre-gl";
+import { Scan } from "lucide-react";
+import type { Coordinates, SchoolSummary } from "../types";
+import { MAP_DEFAULT_ZOOM, MAP_UNLOCK_RADIUS_METERS } from "../utils/constants";
+import { haversine } from "../utils/distance";
+import { watchUserPosition } from "../utils/geolocation";
+
+interface Map3DSceneProps {
+  userPosition: Coordinates | null;
+  schools: SchoolSummary[];
+  onSelectSchool: (school: SchoolSummary) => void;
+  unlockedSchoolIds: Set<string>;
+  likedSchoolIds: Set<string>;
+  onAutoUnlock?: (schoolId: string) => Promise<void>;
+  onScan?: () => Promise<boolean | void> | boolean | void;
+  isRefreshing?: boolean;
+}
+
+type MarkerRecord = {
+  marker: Marker;
+  element: HTMLButtonElement;
+  logoEl: HTMLImageElement;
+  school: SchoolSummary;
+};
+
+type MarkerVisualState = {
+  isUnlocked: boolean;
+  isLiked: boolean;
+};
+
+const DEFAULT_CENTER: Coordinates = {
+  latitude: 50.0646501,
+  longitude: 19.9449799,
+};
+const BUILDINGS_LAYER_ID = "eduverse-buildings";
+const BUILDINGS_SOURCE_ID = "eduverse-buildings-source";
+const INITIAL_PITCH = 58;
+const INITIAL_BEARING = -24;
+const INTERACTION_RELEASE_DELAY = 1400;
+const SCAN_ANIMATION_DURATION_MS = 700;
+
+const envVars = import.meta.env as Record<string, string | undefined>;
+const VECTOR_STYLE_URL = (envVars.VITE_MAP_STYLE_URL ?? "").trim();
+const VECTOR_TILESET_URL =
+  (envVars.VITE_VECTOR_TILESET_URL ?? "").trim() || "https://demotiles.maplibre.org/tiles/tiles.json";
+const RASTER_TILE_URLS = (() => {
+  const parsed = (envVars.VITE_RASTER_TILE_URLS ?? "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
+  return parsed.length > 0
+    ? parsed
+    : [
+        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      ];
+})();
+
+const FALLBACK_RASTER_STYLE = createRasterStyle(RASTER_TILE_URLS);
+
+const createFallbackLogo = (name: string): string => {
+  const size = 120;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return "";
+  }
+
+  ctx.fillStyle = "#0f172a";
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = "#38bdf8";
+  ctx.font = "bold 54px 'Inter', sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const initial = name.trim().charAt(0).toUpperCase() || "E";
+  ctx.fillText(initial, size / 2, size / 2);
+
+  return canvas.toDataURL("image/png");
+};
+
+const computeMarkerScale = (distanceMeters: number | null, isUnlocked: boolean): number => {
+  const base = distanceMeters == null ? 1 : Math.max(0.65, Math.min(1.85, 1.45 - distanceMeters / 450));
+  return isUnlocked ? base * 1.12 : base;
+};
+
+const applyMarkerVisualState = (
+  element: HTMLButtonElement,
+  { isUnlocked, isLiked, justUnlocked }: { isUnlocked: boolean; isLiked: boolean; justUnlocked: boolean }
+) => {
+  element.classList.toggle("eduverse-marker--unlocked", isUnlocked);
+  element.classList.toggle("eduverse-marker--liked", isLiked);
+  if (justUnlocked && typeof globalThis !== "undefined") {
+    element.classList.add("eduverse-marker--just-unlocked");
+    globalThis.setTimeout(() => {
+      element.classList.remove("eduverse-marker--just-unlocked");
+    }, 950);
+  }
+};
+
+function createRasterStyle(tileUrls: string[]): StyleSpecification {
+  return {
+    version: 8,
+    glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+    sources: {
+      "eduverse-raster": {
+        type: "raster",
+        tiles: tileUrls,
+        tileSize: 256,
+        attribution: "© OpenStreetMap contributors",
+      },
+    },
+    layers: [
+      {
+        id: "eduverse-raster-base",
+        type: "raster",
+        source: "eduverse-raster",
+        paint: {
+          "raster-fade-duration": 0,
+        },
+      },
+    ],
+  } satisfies StyleSpecification;
+}
+
+export const Map3DScene = ({
+  userPosition,
+  schools,
+  onSelectSchool,
+  unlockedSchoolIds,
+  likedSchoolIds,
+  onAutoUnlock,
+  onScan,
+  isRefreshing = false,
+}: Map3DSceneProps) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const markerStoreRef = useRef<Map<string, MarkerRecord>>(new Map());
+  const markerStateRef = useRef<Map<string, MarkerVisualState>>(new Map());
+  const logoCacheRef = useRef<Map<string, string>>(new Map());
+  const pendingUnlockRef = useRef<Set<string>>(new Set());
+  const userMarkerRef = useRef<Marker | null>(null);
+  const userPositionRef = useRef<Coordinates | null>(null);
+  const hasCenteredRef = useRef(false);
+  const isUserInteractingRef = useRef(false);
+  const interactionTimeoutRef = useRef<number | null>(null);
+  const fallbackAppliedRef = useRef(VECTOR_STYLE_URL.length === 0);
+  const scanTimeoutRef = useRef<number | null>(null);
+  const scanStartRef = useRef<number | null>(null);
+  const componentMountedRef = useRef(true);
+
+  const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [internalPosition, setInternalPosition] = useState<Coordinates | null>(null);
+  const [geolocationError, setGeolocationError] = useState<string | null>(null);
+  const [isScanActive, setIsScanActive] = useState(false);
+
+  const livePosition = userPosition ?? internalPosition;
+
+  const buildingSourceUrl = useMemo(() => VECTOR_TILESET_URL, []);
+
+  const unlockKey = useMemo(
+    () =>
+      Array.from(unlockedSchoolIds)
+        .sort((a, b) => a.localeCompare(b))
+        .join("|"),
+    [unlockedSchoolIds]
+  );
+  const likedKey = useMemo(
+    () =>
+      Array.from(likedSchoolIds)
+        .sort((a, b) => a.localeCompare(b))
+        .join("|"),
+    [likedSchoolIds]
+  );
+
+  useEffect(() => {
+    return () => {
+      componentMountedRef.current = false;
+      if (scanTimeoutRef.current) {
+        globalThis.clearTimeout(scanTimeoutRef.current);
+        scanTimeoutRef.current = null;
+      }
+      scanStartRef.current = null;
+    };
+  }, []);
+
+  const finishScanWithMinimumDuration = useCallback((minimumDuration: number = SCAN_ANIMATION_DURATION_MS) => {
+    if (scanStartRef.current == null) {
+      return;
+    }
+
+    const elapsed = Date.now() - scanStartRef.current;
+    const remaining = Math.max(0, minimumDuration - elapsed);
+
+    if (scanTimeoutRef.current) {
+      globalThis.clearTimeout(scanTimeoutRef.current);
+    }
+
+    scanTimeoutRef.current = globalThis.setTimeout(() => {
+      scanTimeoutRef.current = null;
+      scanStartRef.current = null;
+      if (componentMountedRef.current) {
+        setIsScanActive(false);
+      }
+    }, remaining);
+  }, []);
+
+  useEffect(() => {
+    if (userPosition) {
+      setInternalPosition(null);
+      setGeolocationError(null);
+      return;
+    }
+
+    const stopWatching = watchUserPosition(
+      (coords) => {
+        setInternalPosition(coords);
+        setGeolocationError(null);
+      },
+      (error) => {
+        console.error("Błąd geolokalizacji w Map3DScene", error);
+        setGeolocationError(error.message ?? "Nie udało się ustalić lokalizacji użytkownika.");
+      }
+    );
+
+    return () => {
+      stopWatching();
+    };
+  }, [userPosition]);
+
+  const resetMarkerScales = useCallback(() => {
+    for (const record of markerStoreRef.current.values()) {
+      const state = markerStateRef.current.get(record.school._id);
+      const scale = computeMarkerScale(null, Boolean(state?.isUnlocked));
+      record.element.style.setProperty("--marker-scale", scale.toFixed(3));
+    }
+  }, []);
+
+  const updateMarkersForPosition = useCallback(
+    (position: Coordinates) => {
+      for (const [id, record] of markerStoreRef.current.entries()) {
+        const state = markerStateRef.current.get(id);
+        const distance = haversine(position, record.school.location);
+        const scale = computeMarkerScale(distance, Boolean(state?.isUnlocked));
+        record.element.style.setProperty("--marker-scale", scale.toFixed(3));
+        record.element.dataset.distanceMeters = distance.toFixed(1);
+
+        const alreadyUnlocked = Boolean(state?.isUnlocked);
+        const isPending = pendingUnlockRef.current.has(id);
+
+        if (alreadyUnlocked || isPending || distance > MAP_UNLOCK_RADIUS_METERS) {
+          continue;
+        }
+
+        pendingUnlockRef.current.add(id);
+        const unlockPromise = onAutoUnlock?.(id);
+        if (unlockPromise) {
+          unlockPromise
+            .catch((error) => console.error("Automatyczne odblokowanie szkoły nie powiodło się", error))
+            .finally(() => {
+              pendingUnlockRef.current.delete(id);
+            });
+        } else {
+          pendingUnlockRef.current.delete(id);
+        }
+      }
+    },
+    [onAutoUnlock]
+  );
+
+  const handleManualScan = useCallback(() => {
+    if (isScanActive || !livePosition) {
+      return;
+    }
+
+    if (scanTimeoutRef.current) {
+      globalThis.clearTimeout(scanTimeoutRef.current);
+      scanTimeoutRef.current = null;
+    }
+
+    scanStartRef.current = Date.now();
+    setIsScanActive(true);
+
+    if (!onScan) {
+      finishScanWithMinimumDuration(SCAN_ANIMATION_DURATION_MS / 2);
+      return;
+    }
+
+    Promise.resolve(onScan())
+      .then((result) => {
+        if (result === false) {
+          finishScanWithMinimumDuration(SCAN_ANIMATION_DURATION_MS / 2);
+        } else {
+          finishScanWithMinimumDuration();
+        }
+      })
+      .catch((error) => {
+        console.error("Nie udało się odświeżyć szkół podczas skanowania", error);
+        finishScanWithMinimumDuration(SCAN_ANIMATION_DURATION_MS / 2);
+      });
+  }, [finishScanWithMinimumDuration, isScanActive, livePosition, onScan]);
+
+  const syncUserMarker = useCallback((map: MapLibreMap, position: Coordinates) => {
+    let marker = userMarkerRef.current;
+    const lngLat: [number, number] = [position.longitude, position.latitude];
+
+    if (marker === null) {
+      const element = document.createElement("div");
+      element.className = "eduverse-user-marker";
+      const pulse = document.createElement("span");
+      pulse.className = "eduverse-user-marker__pulse";
+      element.appendChild(pulse);
+
+      marker = new Marker({ element, anchor: "center" }).setLngLat(lngLat).addTo(map);
+      userMarkerRef.current = marker;
+    } else {
+      marker.setLngLat(lngLat);
+    }
+
+    if (!hasCenteredRef.current) {
+      hasCenteredRef.current = true;
+      map.flyTo({
+        center: lngLat,
+        zoom: Math.max(MAP_DEFAULT_ZOOM + 1, 16),
+        pitch: 65,
+        bearing: INITIAL_BEARING,
+        duration: 1200,
+        essential: true,
+      });
+    } else if (!isUserInteractingRef.current) {
+      map.easeTo({ center: lngLat, duration: 850 });
+    }
+  }, []);
+
+  const ensureBuildingLayer = useCallback(
+    (map: MapLibreMap) => {
+      if (map.getLayer(BUILDINGS_LAYER_ID)) {
+        return;
+      }
+
+      let sourceId: string | null = null;
+
+      if (map.getSource("openmaptiles")) {
+        sourceId = "openmaptiles";
+      } else {
+        if (!map.getSource(BUILDINGS_SOURCE_ID) && buildingSourceUrl) {
+          try {
+            map.addSource(BUILDINGS_SOURCE_ID, {
+              type: "vector",
+              url: buildingSourceUrl,
+            });
+          } catch (error) {
+            console.warn("Nie udało się dodać źródła budynków", error);
+          }
+        }
+
+        if (map.getSource(BUILDINGS_SOURCE_ID)) {
+          sourceId = BUILDINGS_SOURCE_ID;
+        }
+      }
+
+      if (!sourceId) {
+        return;
+      }
+
+      try {
+        const layers = map.getStyle()?.layers as LayerSpecification[] | undefined;
+        const beforeLayerId = layers?.find((layer) => {
+          if (layer.type !== "symbol") {
+            return false;
+          }
+          const layout = layer.layout as Record<string, unknown> | undefined;
+          return typeof layout?.["text-field"] === "string";
+        })?.id;
+
+        map.addLayer(
+          {
+            id: BUILDINGS_LAYER_ID,
+            source: sourceId,
+            "source-layer": "building",
+            type: "fill-extrusion",
+            minzoom: 14,
+            paint: {
+              "fill-extrusion-color": "#aaaaaa",
+              "fill-extrusion-opacity": 0.7,
+              "fill-extrusion-height": [
+                "coalesce",
+                ["get", "render_height"],
+                ["get", "height"],
+                ["*", ["coalesce", ["get", "building:levels"], 0], 3],
+                15,
+              ],
+              "fill-extrusion-base": [
+                "coalesce",
+                ["get", "render_min_height"],
+                ["get", "min_height"],
+                ["*", ["coalesce", ["get", "building:min_level"], 0], 3],
+                0,
+              ],
+              "fill-extrusion-vertical-gradient": true,
+            },
+          },
+          beforeLayerId ?? undefined
+        );
+      } catch (error) {
+        console.warn("Nie udało się dodać warstwy budynków", error);
+      }
+    },
+    [buildingSourceUrl]
+  );
+
+  const setMarkerLogo = useCallback((imgEl: HTMLImageElement, school: SchoolSummary) => {
+    const cacheKey = school.logoUrl ?? `fallback-${school._id}`;
+    const cached = logoCacheRef.current.get(cacheKey);
+    if (cached) {
+      imgEl.src = cached;
+      return;
+    }
+
+    imgEl.decoding = "async";
+    imgEl.referrerPolicy = "no-referrer";
+
+    if (!school.logoUrl) {
+      const fallback = createFallbackLogo(school.name);
+      logoCacheRef.current.set(cacheKey, fallback);
+      imgEl.src = fallback;
+      return;
+    }
+
+    const url = school.logoUrl;
+    imgEl.onload = () => {
+      logoCacheRef.current.set(cacheKey, url);
+      imgEl.onload = null;
+    };
+    imgEl.onerror = () => {
+      const fallback = createFallbackLogo(school.name);
+      logoCacheRef.current.set(cacheKey, fallback);
+      imgEl.src = fallback;
+      imgEl.onerror = null;
+    };
+    imgEl.src = url;
+  }, []);
+
+  const createSchoolMarker = useCallback(
+    (map: MapLibreMap, school: SchoolSummary, isUnlocked: boolean, isLiked: boolean): MarkerRecord => {
+      const element = document.createElement("button");
+      element.type = "button";
+      element.className = "eduverse-marker";
+      element.title = school.name;
+      element.dataset.schoolId = school._id;
+      element.style.setProperty("--marker-scale", computeMarkerScale(null, isUnlocked).toFixed(3));
+
+      const iconWrapper = document.createElement("div");
+      iconWrapper.className = "eduverse-marker__icon";
+      const halo = document.createElement("span");
+      halo.className = "eduverse-marker__halo";
+      const logo = document.createElement("img");
+      logo.alt = school.name;
+      iconWrapper.appendChild(logo);
+      element.appendChild(iconWrapper);
+      element.appendChild(halo);
+
+      element.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onSelectSchool(school);
+      });
+
+      const marker = new Marker({
+        element,
+        anchor: "bottom",
+        pitchAlignment: "map",
+        rotationAlignment: "map",
+      })
+        .setLngLat([school.location.longitude, school.location.latitude])
+        .addTo(map);
+
+      setMarkerLogo(logo, school);
+      applyMarkerVisualState(element, {
+        isUnlocked,
+        isLiked,
+        justUnlocked: false,
+      });
+
+      return { marker, element, logoEl: logo, school };
+    },
+    [onSelectSchool, setMarkerLogo]
+  );
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return;
+
+    const container = containerRef.current;
+
+    // Jeśli kontener nie ma wysokości, ustawiamy na wysokość okna
+    if (!container.offsetHeight) {
+      container.style.height = `${window.innerHeight}px`;
+    }
+
+    try {
+      const map = new MapLibreMap({
+        container,
+        style: VECTOR_STYLE_URL.length > 0 ? VECTOR_STYLE_URL : FALLBACK_RASTER_STYLE,
+        center: [DEFAULT_CENTER.longitude, DEFAULT_CENTER.latitude],
+        zoom: MAP_DEFAULT_ZOOM,
+        pitch: INITIAL_PITCH,
+        bearing: INITIAL_BEARING,
+        maxPitch: 85,
+      });
+
+      mapRef.current = map;
+
+      // Kontrolki
+      map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
+      map.touchZoomRotate.enable();
+      map.touchZoomRotate.enableRotation();
+
+      const handleMapLoad = () => {
+        setMapReady(true);
+        setMapError(null);
+        ensureBuildingLayer(map);
+
+        // Wymuszenie resize po pierwszym załadowaniu mapy
+        setTimeout(() => map.resize(), 200);
+      };
+
+      const handleStyleData = () => ensureBuildingLayer(map);
+
+      const handleInteractionStart = () => {
+        isUserInteractingRef.current = true;
+        if (interactionTimeoutRef.current) {
+          clearTimeout(interactionTimeoutRef.current);
+          interactionTimeoutRef.current = null;
+        }
+      };
+
+      const handleInteractionEnd = () => {
+        if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
+        interactionTimeoutRef.current = globalThis.setTimeout(() => {
+          isUserInteractingRef.current = false;
+          interactionTimeoutRef.current = null;
+        }, INTERACTION_RELEASE_DELAY);
+      };
+
+      const handleStyleError = (event: { error?: Error }) => {
+        if (fallbackAppliedRef.current || VECTOR_STYLE_URL.length === 0) return;
+        console.warn("Błąd stylu MapLibre, przełączam na raster", event.error);
+        fallbackAppliedRef.current = true;
+        map.setStyle(FALLBACK_RASTER_STYLE);
+      };
+
+      map.on("load", handleMapLoad);
+      map.on("styledata", handleStyleData);
+      map.on("dragstart", handleInteractionStart);
+      map.on("dragend", handleInteractionEnd);
+      map.on("rotatestart", handleInteractionStart);
+      map.on("rotateend", handleInteractionEnd);
+      map.on("pitchstart", handleInteractionStart);
+      map.on("pitchend", handleInteractionEnd);
+      if (VECTOR_STYLE_URL.length > 0) map.on("error", handleStyleError);
+
+      // Obsługa resize dla mobilnych viewportów
+      const scheduleResize = () => map.resize();
+      const handleResize = () => scheduleResize();
+
+      window.addEventListener("resize", handleResize);
+      globalThis.addEventListener("orientationchange", handleResize);
+      window.visualViewport?.addEventListener("resize", handleResize);
+
+      const markerStoreForCleanup = markerStoreRef.current;
+      const markerStateForCleanup = markerStateRef.current;
+      const userMarkerForCleanup = userMarkerRef.current;
+
+      return () => {
+        map.off("load", handleMapLoad);
+        map.off("styledata", handleStyleData);
+        map.off("dragstart", handleInteractionStart);
+        map.off("dragend", handleInteractionEnd);
+        map.off("rotatestart", handleInteractionStart);
+        map.off("rotateend", handleInteractionEnd);
+        map.off("pitchstart", handleInteractionStart);
+        map.off("pitchend", handleInteractionEnd);
+        if (VECTOR_STYLE_URL.length > 0) map.off("error", handleStyleError);
+
+        map.remove();
+        mapRef.current = null;
+        setMapReady(false);
+
+        window.removeEventListener("resize", handleResize);
+        globalThis.removeEventListener("orientationchange", handleResize);
+        window.visualViewport?.removeEventListener("resize", handleResize);
+
+        for (const record of markerStoreForCleanup.values()) {
+          record.marker.remove();
+        }
+        markerStoreForCleanup.clear();
+        markerStateForCleanup.clear();
+        if (userMarkerForCleanup) {
+          userMarkerForCleanup.remove();
+          userMarkerRef.current = null;
+        }
+
+        if (interactionTimeoutRef.current) {
+          clearTimeout(interactionTimeoutRef.current);
+        }
+
+        fallbackAppliedRef.current = VECTOR_STYLE_URL.length === 0;
+        hasCenteredRef.current = false;
+      };
+    } catch (error) {
+      console.error("Nie udało się zainicjować MapLibre GL", error);
+      setMapError("Nie udało się uruchomić mapy. Odśwież stronę lub sprawdź połączenie sieciowe.");
+    }
+  }, [ensureBuildingLayer]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+
+    const activeIds = new Set<string>();
+
+    for (const school of schools) {
+      activeIds.add(school._id);
+
+      const isUnlocked = unlockedSchoolIds.has(school._id) || Boolean(school.unlocked);
+      const isLiked = likedSchoolIds.has(school._id) || Boolean(school.liked);
+      const existing = markerStoreRef.current.get(school._id);
+      const prevState = markerStateRef.current.get(school._id);
+
+      if (existing) {
+        existing.school = school;
+        existing.marker.setLngLat([school.location.longitude, school.location.latitude]);
+        setMarkerLogo(existing.logoEl, school);
+        const justUnlocked = prevState ? isUnlocked && !prevState.isUnlocked : false;
+        applyMarkerVisualState(existing.element, {
+          isUnlocked,
+          isLiked,
+          justUnlocked,
+        });
+      } else {
+        const record = createSchoolMarker(map, school, isUnlocked, isLiked);
+        markerStoreRef.current.set(school._id, record);
+      }
+
+      markerStateRef.current.set(school._id, { isUnlocked, isLiked });
+    }
+
+    for (const [id, record] of markerStoreRef.current.entries()) {
+      if (!activeIds.has(id)) {
+        record.marker.remove();
+        markerStoreRef.current.delete(id);
+        markerStateRef.current.delete(id);
+      }
+    }
+  }, [schools, likedKey, unlockKey, createSchoolMarker, setMarkerLogo, likedSchoolIds, unlockedSchoolIds]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) {
+      return;
+    }
+
+    userPositionRef.current = livePosition;
+
+    if (!livePosition) {
+      resetMarkerScales();
+      return;
+    }
+
+    syncUserMarker(map, livePosition);
+    updateMarkersForPosition(livePosition);
+  }, [livePosition, mapReady, resetMarkerScales, syncUserMarker, updateMarkersForPosition]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map || (!livePosition && schools.length === 0)) {
+      return;
+    }
+
+    if (isUserInteractingRef.current || !hasCenteredRef.current) {
+      return;
+    }
+
+    const bounds = new LngLatBounds();
+    let hasAny = false;
+
+    if (livePosition) {
+      bounds.extend([livePosition.longitude, livePosition.latitude]);
+      hasAny = true;
+    }
+
+    for (const school of schools) {
+      bounds.extend([school.location.longitude, school.location.latitude]);
+      hasAny = true;
+    }
+
+    if (!hasAny) {
+      return;
+    }
+
+    map.fitBounds(bounds, {
+      padding: { top: 120, bottom: 160, left: 140, right: 140 },
+      maxZoom: 17,
+      duration: 900,
+    });
+  }, [schools, livePosition, mapReady]);
+
+  useEffect(() => {
+    for (const id of pendingUnlockRef.current) {
+      if (unlockedSchoolIds.has(id)) {
+        pendingUnlockRef.current.delete(id);
+      }
+    }
+  }, [unlockKey, unlockedSchoolIds]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) {
+      return;
+    }
+
+    const map = mapRef.current;
+    const win = globalThis.window as (Window & typeof globalThis) | undefined;
+    const viewport = win?.visualViewport;
+    let frameId: number | null = null;
+
+    const scheduleResize = () => {
+      if (frameId !== null) {
+        win?.cancelAnimationFrame(frameId);
+      }
+      frameId =
+        win?.requestAnimationFrame(() => {
+          if (!componentMountedRef.current || !map) {
+            return;
+          }
+          map.resize();
+        }) ?? null;
+    };
+
+    scheduleResize();
+
+    const handleResize = () => {
+      scheduleResize();
+    };
+
+    win?.addEventListener("resize", handleResize);
+    win?.addEventListener("orientationchange", handleResize);
+    viewport?.addEventListener("resize", handleResize);
+
+    return () => {
+      if (frameId !== null && win) {
+        win.cancelAnimationFrame(frameId);
+      }
+      win?.removeEventListener("resize", handleResize);
+      win?.removeEventListener("orientationchange", handleResize);
+      viewport?.removeEventListener("resize", handleResize);
+    };
+  }, [mapReady]);
+
+  const isScanDisabled = !livePosition || isScanActive;
+  const scanButtonLabel = isScanActive ? "Skanowanie..." : "Skanuj okolice";
+  const scanTooltip = isScanDisabled ? "Oczekiwanie na lokalizację" : "Przeskanuj najbliższe szkoły";
+
+  return (
+    <div className="relative h-full w-full">
+      {mapError ? (
+        <div className="flex h-full w-full items-center justify-center border border-dashed border-slate-300 bg-white/70 p-8 text-center text-slate-600 sm:rounded-3xl">
+          {mapError}
+        </div>
+      ) : (
+        <div ref={containerRef} className="h-full w-full sm:rounded-3xl" />
+      )}
+
+      <div className="pointer-events-none absolute inset-0 hidden sm:block sm:rounded-3xl sm:ring-1 sm:ring-black/10" />
+
+      <div className="absolute inset-x-0 bottom-40 z-30 flex flex-col items-center gap-2 px-4 sm:bottom-20 lg:bottom-12">
+        <button
+          type="button"
+          onClick={handleManualScan}
+          disabled={isScanDisabled}
+          aria-busy={isScanActive}
+          title={scanTooltip}
+          className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-sky-500 text-white shadow-[0_18px_30px_-10px_rgba(14,116,144,0.65)] transition hover:-translate-y-1 hover:bg-sky-600 hover:shadow-[0_24px_36px_-12px_rgba(14,116,144,0.6)] focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
+        >
+          <Scan className={`size-6 ${isScanActive ? "animate-spin" : ""}`} />
+        </button>
+        <span className="text-sm font-semibold uppercase tracking-wide text-white drop-shadow">{scanButtonLabel}</span>
+        {isRefreshing && !isScanActive ? (
+          <span className="text-xs font-semibold uppercase tracking-wide text-white drop-shadow">
+            Aktualizuję dane...
+          </span>
+        ) : null}
+      </div>
+
+      {isScanActive ? (
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+          <div className="relative flex h-56 w-56 items-center justify-center">
+            <span className="absolute inline-flex h-56 w-56 rounded-full bg-sky-400/20 opacity-80 animate-ping" />
+            <span className="absolute inline-flex h-72 w-72 rounded-full border border-sky-400/30 opacity-60 animate-ping [animation-delay:180ms]" />
+            <span className="relative inline-flex h-32 w-32 items-center justify-center rounded-full border border-sky-500/70 bg-sky-500/10 text-xs font-semibold uppercase tracking-[0.35em] text-sky-700 shadow-inner">
+              Skanuję
+            </span>
+          </div>
+        </div>
+      ) : null}
+
+      {geolocationError && !userPosition ? (
+        <div className="absolute right-4 top-4 z-20 max-w-xs rounded-2xl bg-amber-100/90 px-4 py-3 text-xs font-semibold text-amber-800 shadow-lg sm:right-6 sm:top-6">
+          {geolocationError}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+export default Map3DScene;
