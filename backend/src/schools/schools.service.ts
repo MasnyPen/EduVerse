@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { School } from 'src/database/School';
@@ -77,5 +77,50 @@ export class SchoolsService {
         ]);
 
         return schools;
+    }
+
+
+    async getSchool(id: string): Promise<any> {
+        const school = await this.schoolModel.findById(id) 
+
+        if (school != null) {
+            
+            const { likes, ...results } = school         
+
+            const newSchool = {
+                likes: likes.length,
+                ...results
+            }
+
+            return newSchool
+        } else {
+            throw new NotFoundException("Nie znaleziono szkoły.")
+        }
+    }
+
+    async addLikesToSchool(schoolId: string, userId: string): Promise<any> {
+        try {
+            this.schoolModel.findByIdAndUpdate(schoolId, { $push: {
+                likes: userId
+            }})
+        } catch (e) {
+            throw new HttpException(
+                    { message: 'Wystąpił błąd w dodawaniu polubienia.' },
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                  );
+        }
+    }
+
+    async removeLikesFromSchool(schoolId: string, userId: string): Promise<any> {
+        try {
+            this.schoolModel.findByIdAndUpdate(schoolId, { $pull: {
+                likes: userId
+            }})
+        } catch (e) {
+            throw new HttpException(
+                    { message: 'Wystąpił błąd w dodawaniu polubienia.' },
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                  );
+        }
     }
 }
