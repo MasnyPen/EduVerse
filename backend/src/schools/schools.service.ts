@@ -81,14 +81,14 @@ export class SchoolsService {
 
 
     async getSchool(id: string): Promise<any> {
-        const school = await this.schoolModel.findById(id) 
+        const school = await this.schoolModel.findById(id).lean<School>().exec()
 
         if (school != null) {
             
             const { likes, ...results } = school         
 
             const newSchool = {
-                likes: likes.length,
+                likes: likes?.length || 0,
                 ...results
             }
 
