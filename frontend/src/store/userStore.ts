@@ -3,42 +3,32 @@ import { create } from "zustand";
 import { persist, type PersistOptions } from "zustand/middleware";
 import type { StoreApi } from "zustand";
 import { fetchCurrentUser, login as loginRequest, register as registerRequest } from "../api/auth";
-import { authTokenStorage, setTokenListener } from "../api/api";
-import type {
-  AuthPayload,
-  AuthSession,
-  LikeEntry,
-  RegisterPayload,
-  SchoolHistoryEntry,
-  SchoolSummary,
-  UserProfile,
-} from "../types";
+import { authTokenStorage } from "../api/api";
+import type { AuthPayload, AuthSession, RegisterPayload, UserProfile } from "../types";
 
 export interface UserStoreState {
   user: UserProfile | null;
   token: string | null;
-  visitedSchools: SchoolHistoryEntry[];
-  likedSchools: LikeEntry[];
-  unlockedSchools: SchoolSummary[];
   isAuthLoading: boolean;
   authError?: string;
+  likedSchools: any[];
+  unlockedSchools: any[];
+  visitedSchools: any[];
   setAuthData: (payload: AuthSession) => void;
   login: (credentials: AuthPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   hydrateUser: () => Promise<void>;
-  logout: () => void;
-  refreshVisited: () => Promise<void>;
   refreshLiked: () => Promise<void>;
   refreshUnlocked: () => Promise<void>;
+  refreshVisited: () => Promise<void>;
   like: (schoolId: string) => Promise<void>;
   unlike: (schoolId: string) => Promise<void>;
   unlock: (schoolId: string) => Promise<void>;
+  logout: () => void;
+  handleUnauthorized: () => void;
 }
 
 const defaultSlices = {
-  visitedSchools: [] as SchoolHistoryEntry[],
-  likedSchools: [] as LikeEntry[],
-  unlockedSchools: [] as SchoolSummary[],
   isAuthLoading: false,
   authError: undefined as string | undefined,
 };
@@ -67,6 +57,9 @@ const resolveErrorMessage = (error: unknown): string | undefined => {
 const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
   user: null,
   token: authTokenStorage.get(),
+  likedSchools: [],
+  unlockedSchools: [],
+  visitedSchools: [],
   ...defaultSlices,
   setAuthData: (payload: AuthSession) => {
     authTokenStorage.set(payload.token);
@@ -108,40 +101,57 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
       set({ user: profile });
     } catch (error) {
       console.error("Nie udało się pobrać profilu użytkownika", error);
-      authTokenStorage.clear();
       set({ token: null, user: null });
+      authTokenStorage.clear();
     } finally {
       set({ isAuthLoading: false });
     }
+  },
+  refreshLiked: async () => {
+    console.warn("NOT IMPLEMENTED");
+    throw new Error("NOT IMPLEMENTED");
+  },
+  refreshUnlocked: async () => {
+    console.warn("NOT IMPLEMENTED");
+    throw new Error("NOT IMPLEMENTED");
+  },
+  refreshVisited: async () => {
+    console.warn("NOT IMPLEMENTED");
+    throw new Error("NOT IMPLEMENTED");
+  },
+  like: async () => {
+    console.warn("NOT IMPLEMENTED");
+    throw new Error("NOT IMPLEMENTED");
+  },
+  unlike: async () => {
+    console.warn("NOT IMPLEMENTED");
+    throw new Error("NOT IMPLEMENTED");
+  },
+  unlock: async () => {
+    console.warn("NOT IMPLEMENTED");
+    throw new Error("NOT IMPLEMENTED");
   },
   logout: () => {
     authTokenStorage.clear();
     set({
       user: null,
       token: null,
+      likedSchools: [],
+      unlockedSchools: [],
+      visitedSchools: [],
       ...defaultSlices,
     });
   },
-  refreshVisited: async () => {
-    set({ visitedSchools: [] });
-  },
-  refreshLiked: async () => {
-    set({ likedSchools: [] });
-  },
-  refreshUnlocked: async () => {
-    set({ unlockedSchools: [] });
-  },
-  like: async (schoolId: string) => {
-    console.warn("NOT IMPLEMENTED", { schoolId });
-    throw new Error("NOT IMPLEMENTED");
-  },
-  unlike: async (schoolId: string) => {
-    console.warn("NOT IMPLEMENTED", { schoolId });
-    throw new Error("NOT IMPLEMENTED");
-  },
-  unlock: async (schoolId: string) => {
-    console.warn("NOT IMPLEMENTED", { schoolId });
-    throw new Error("NOT IMPLEMENTED");
+  handleUnauthorized: () => {
+    authTokenStorage.clear();
+    set({
+      user: null,
+      token: null,
+      likedSchools: [],
+      unlockedSchools: [],
+      visitedSchools: [],
+      ...defaultSlices,
+    });
   },
 });
 
@@ -154,9 +164,3 @@ const persistOptions: PersistOptions<UserStoreState, PersistedState> = {
 };
 
 export const useUserStore = create<UserStoreState>()(persist(storeCreator, persistOptions));
-
-setTokenListener((token) => {
-  if (!token) {
-    useUserStore.getState().logout();
-  }
-});

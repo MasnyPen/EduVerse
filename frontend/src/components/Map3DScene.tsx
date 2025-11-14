@@ -211,9 +211,7 @@ export const Map3DScene = ({
     scanTimeoutRef.current = globalThis.setTimeout(() => {
       scanTimeoutRef.current = null;
       scanStartRef.current = null;
-      if (componentMountedRef.current) {
-        setIsScanActive(false);
-      }
+      setIsScanActive(false);
     }, remaining);
   }, []);
 
@@ -252,7 +250,7 @@ export const Map3DScene = ({
     (position: Coordinates) => {
       for (const [id, record] of markerStoreRef.current.entries()) {
         const state = markerStateRef.current.get(id);
-        const distance = haversine(position, record.school.location);
+        const distance = haversine(position, record.school.coordinates);
         const scale = computeMarkerScale(distance, Boolean(state?.isUnlocked));
         record.element.style.setProperty("--marker-scale", scale.toFixed(3));
         record.element.dataset.distanceMeters = distance.toFixed(1);
@@ -299,18 +297,14 @@ export const Map3DScene = ({
     }
 
     Promise.resolve(onScan())
-      .then((result) => {
-        if (result === false) {
-          finishScanWithMinimumDuration(SCAN_ANIMATION_DURATION_MS / 2);
-        } else {
-          finishScanWithMinimumDuration();
-        }
+      .then(() => {
+        finishScanWithMinimumDuration();
       })
       .catch((error) => {
         console.error("Nie udało się odświeżyć szkół podczas skanowania", error);
         finishScanWithMinimumDuration(SCAN_ANIMATION_DURATION_MS / 2);
       });
-  }, [finishScanWithMinimumDuration, isScanActive, livePosition, onScan]);
+  }, [isScanActive, livePosition, onScan, finishScanWithMinimumDuration]);
 
   const syncUserMarker = useCallback((map: MapLibreMap, position: Coordinates) => {
     let marker = userMarkerRef.current;
@@ -422,35 +416,16 @@ export const Map3DScene = ({
   );
 
   const setMarkerLogo = useCallback((imgEl: HTMLImageElement, school: SchoolSummary) => {
-    const cacheKey = school.logoUrl ?? `fallback-${school._id}`;
+    const cacheKey = `fallback-${school._id}`;
     const cached = logoCacheRef.current.get(cacheKey);
     if (cached) {
       imgEl.src = cached;
       return;
     }
 
-    imgEl.decoding = "async";
-    imgEl.referrerPolicy = "no-referrer";
-
-    if (!school.logoUrl) {
-      const fallback = createFallbackLogo(school.name);
-      logoCacheRef.current.set(cacheKey, fallback);
-      imgEl.src = fallback;
-      return;
-    }
-
-    const url = school.logoUrl;
-    imgEl.onload = () => {
-      logoCacheRef.current.set(cacheKey, url);
-      imgEl.onload = null;
-    };
-    imgEl.onerror = () => {
-      const fallback = createFallbackLogo(school.name);
-      logoCacheRef.current.set(cacheKey, fallback);
-      imgEl.src = fallback;
-      imgEl.onerror = null;
-    };
-    imgEl.src = url;
+    const fallback = createFallbackLogo(school.name);
+    logoCacheRef.current.set(cacheKey, fallback);
+    imgEl.src = fallback;
   }, []);
 
   const createSchoolMarker = useCallback(
@@ -484,9 +459,8 @@ export const Map3DScene = ({
         pitchAlignment: "map",
         rotationAlignment: "map",
       })
-        .setLngLat([school.location.longitude, school.location.latitude])
+        .setLngLat([school.coordinates.longitude, school.coordinates.latitude])
         .addTo(map);
-
       setMarkerLogo(logo, school);
       applyMarkerVisualState(element, {
         isUnlocked,
@@ -643,7 +617,7 @@ export const Map3DScene = ({
 
       if (existing) {
         existing.school = school;
-        existing.marker.setLngLat([school.location.longitude, school.location.latitude]);
+        existing.marker.setLngLat([school.coordinates.longitude, school.coordinates.latitude]);
         setMarkerLogo(existing.logoEl, school);
         const justUnlocked = prevState ? isUnlocked && !prevState.isUnlocked : false;
         applyMarkerVisualState(existing.element, {
@@ -704,7 +678,7 @@ export const Map3DScene = ({
     }
 
     for (const school of schools) {
-      bounds.extend([school.location.longitude, school.location.latitude]);
+      bounds.extend([school.coordinates.longitude, school.coordinates.latitude]);
       hasAny = true;
     }
 

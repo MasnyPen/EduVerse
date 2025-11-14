@@ -7,9 +7,8 @@ export interface SchoolSummary {
   _id: string;
   name: string;
   shortDescription?: string;
-  location: Coordinates;
+  coordinates: Coordinates;
   bannerUrl?: string;
-  logoUrl?: string;
   profile?: string;
   tags?: string[];
   unlocked?: boolean;
@@ -22,13 +21,30 @@ export interface SchoolDetails extends SchoolSummary {
   website?: string;
   address?: string;
   examStats?: Record<string, string | number>;
+  likes: number;
+  profiles?: {
+    name: string;
+    type: number;
+    tags: string[];
+    extensions: string[];
+    extensionsOpt: string[];
+    img?: string;
+  }[];
+  results?: {
+    polish?: number;
+    math?: number;
+    aliens?: number;
+  };
+  url?: string;
+  paid?: boolean;
 }
 
 export interface Opinion {
   _id: string;
   userId: string;
   userName: string;
-  message: string;
+  content: string;
+  stars: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -59,14 +75,14 @@ export interface UserProfile {
   avatarUrl?: string;
 }
 
-export interface SchoolHistoryEntry {
-  _id: string;
-  school: SchoolSummary;
-  visitedAt: string;
+export interface CalendarDate {
+  dates: string[];
+  title: string;
+  perms: string[];
 }
 
-export interface LikeEntry {
+export interface Calendar {
   _id: string;
-  school: SchoolSummary;
-  likedAt: string;
+  year: number;
+  dates: CalendarDate[];
 }

@@ -26,6 +26,19 @@ const Dashboard = () => {
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel | null>(null);
 
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1024;
+
+    if (!isMobile) return;
+
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, []);
+
   const {
     token,
     user,
@@ -232,13 +245,16 @@ const Dashboard = () => {
     };
   }, [schoolsError]);
 
-  const likedSchoolIds = useMemo(() => new Set(likedSchools.map((entry) => entry.school._id)), [likedSchools]);
-  const unlockedSchoolIds = useMemo(() => new Set(unlockedSchools.map((entry) => entry._id)), [unlockedSchools]);
-
   const selectedSchool = useMemo(
     () => (selectedSchoolId ? schools.find((school) => school._id === selectedSchoolId) ?? null : null),
     [schools, selectedSchoolId]
   );
+
+  const likedSchoolIds = useMemo(
+    () => new Set(likedSchools.filter((entry) => entry.school).map((entry) => entry.school._id)),
+    [likedSchools]
+  );
+  const unlockedSchoolIds = useMemo(() => new Set(unlockedSchools.map((entry) => entry._id)), [unlockedSchools]);
 
   const nearestSchools = useMemo(() => {
     if (schools.length === 0) return [] as SchoolSummary[];
@@ -365,11 +381,17 @@ const Dashboard = () => {
                       <div className="grid gap-3">
                         <div className="flex items-center justify-between rounded-2xl bg-slate-100 px-4 py-3">
                           <span className="text-slate-500">Polubione szkoły</span>
-                          <span className="font-semibold text-slate-800">{likedSchools.length}</span>
+                          <span className="flex items-center gap-2 font-semibold text-slate-800">
+                            <Heart className="size-4 text-rose-500" />
+                            {likedSchools.length}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between rounded-2xl bg-slate-100 px-4 py-3">
                           <span className="text-slate-500">Odblokowane szkoły</span>
-                          <span className="font-semibold text-slate-800">{unlockedSchools.length}</span>
+                          <span className="flex items-center gap-2 font-semibold text-slate-800">
+                            <Sparkles className="size-4 text-amber-500" />
+                            {unlockedSchools.length}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -386,11 +408,11 @@ const Dashboard = () => {
               }
               return (
                 <ul className="space-y-3">
-                  {nearestSchools.map((school) => {
+                  {nearestSchools.map((school, index) => {
                     const isUnlockedSchool = unlockedSchoolIds.has(school._id);
                     const isLikedSchool = likedSchoolIds.has(school._id);
                     return (
-                      <li key={school._id}>
+                      <li key={`${school._id}-${index}`}>
                         <button
                           type="button"
                           onClick={() => handleMobileSelectSchool(school._id)}
@@ -418,11 +440,17 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 gap-3">
                   <div className="flex items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3">
                     <span className="text-sm font-semibold text-emerald-600">Szkoły</span>
-                    <span className="text-lg font-semibold text-slate-800">{schools.length}</span>
+                    <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+                      <School className="size-4 text-emerald-500" />
+                      {schools.length}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between rounded-2xl bg-amber-50 px-4 py-3">
                     <span className="text-sm font-semibold text-amber-600">Odblokowane</span>
-                    <span className="text-lg font-semibold text-slate-800">{unlockedSchoolIds.size}</span>
+                    <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+                      <Sparkles className="size-4 text-amber-500" />
+                      {unlockedSchoolIds.size}
+                    </span>
                   </div>
                 </div>
               );
@@ -513,11 +541,11 @@ const Dashboard = () => {
                 </p>
               ) : (
                 <ul className="mt-5 space-y-3">
-                  {nearestSchools.map((school) => {
+                  {nearestSchools.map((school, index) => {
                     const isUnlocked = unlockedSchoolIds.has(school._id);
                     const isLiked = likedSchoolIds.has(school._id);
                     return (
-                      <li key={school._id}>
+                      <li key={`${school._id}-${index}`}>
                         <button
                           type="button"
                           onClick={() => setSelectedSchoolId(school._id)}
@@ -548,13 +576,19 @@ const Dashboard = () => {
                   <span className="flex items-center gap-2 text-emerald-600">
                     <span className="inline-block rounded-full bg-emerald-500/20 px-2 py-0.5">Szkoły</span>
                   </span>
-                  <span className="text-lg text-slate-800">{schools.length}</span>
+                  <span className="flex items-center gap-2 text-lg text-slate-800">
+                    <School className="size-4 text-emerald-500" />
+                    {schools.length}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between rounded-2xl bg-amber-50 px-4 py-3">
                   <span className="flex items-center gap-2 text-amber-600">
                     <span className="inline-block rounded-full bg-amber-500/20 px-2 py-0.5">Odblokowane</span>
                   </span>
-                  <span className="text-lg text-slate-800">{unlockedSchoolIds.size}</span>
+                  <span className="flex items-center gap-2 text-lg text-slate-800">
+                    <Sparkles className="size-4 text-amber-500" />
+                    {unlockedSchoolIds.size}
+                  </span>
                 </div>
               </div>
             </div>

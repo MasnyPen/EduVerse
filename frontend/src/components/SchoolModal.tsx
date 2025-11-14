@@ -1,7 +1,21 @@
 import type { JSX } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Heart, Loader2, MapPin, MessageCircle, Sparkles, X } from "lucide-react";
+import {
+  Heart,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  Sparkles,
+  X,
+  BookOpen,
+  Award,
+  Globe,
+  DollarSign,
+  Users,
+  GraduationCap,
+  Tag,
+} from "lucide-react";
 import {
   addSchoolOpinion,
   deleteSchoolOpinion,
@@ -35,16 +49,19 @@ interface SchoolModalContentProps {
   opinions: Opinion[];
   pagination: PaginationState;
   commentDraft: string;
+  starsDraft: number;
   isBusy: boolean;
   isLiked: boolean;
   isUnlocked: boolean;
   allowUnlock: boolean;
   error: string | null;
   editingOpinionId: string | null;
+  hasExistingOpinion: boolean;
   onClose: () => void;
   onLikeToggle: () => void;
   onUnlock: () => void;
   onCommentChange: (value: string) => void;
+  onStarsChange: (value: number) => void;
   onSubmitComment: () => void;
   onLoadMore: () => void;
   onEditOpinion: (opinion: Opinion) => void;
@@ -59,16 +76,19 @@ const SchoolModalContent = ({
   opinions,
   pagination,
   commentDraft,
+  starsDraft,
   isBusy,
   isLiked,
   isUnlocked,
   allowUnlock,
   error,
   editingOpinionId,
+  hasExistingOpinion,
   onClose,
   onLikeToggle,
   onUnlock,
   onCommentChange,
+  onStarsChange,
   onSubmitComment,
   onLoadMore,
   onEditOpinion,
@@ -88,30 +108,208 @@ const SchoolModalContent = ({
       return <div className="text-sm text-slate-400">Brak dodatkowych informacji o tej szkole.</div>;
     }
 
-    return (
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto pr-2 text-sm text-slate-600">
-        <p>{details.description ?? "Brak opisu."}</p>
-        {details.examStats && (
-          <div className="rounded-2xl bg-slate-50 p-4">
-            <h4 className="text-sm font-semibold text-slate-700">Wyniki egzaminów</h4>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {Object.entries(details.examStats).map(([label, value]) => (
-                <div key={label} className="rounded-xl bg-white p-3 shadow">
-                  <span className="text-xs uppercase tracking-wide text-slate-400">{label}</span>
-                  <p className="text-base font-semibold text-slate-700">{value}</p>
-                </div>
-              ))}
+    const tiles = [];
+
+    if (details.description) {
+      tiles.push(
+        <motion.div
+          key="description"
+          className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="rounded-full bg-sky-100 p-2">
+              <BookOpen className="size-5 text-sky-600" />
             </div>
+            <h4 className="text-sm font-semibold text-slate-700">Opis szkoły</h4>
           </div>
-        )}
-        {details.tags && details.tags.length > 0 && (
+          <p className="text-sm text-slate-600 leading-relaxed">{details.description}</p>
+        </motion.div>
+      );
+    }
+
+    if (details.examStats && Object.keys(details.examStats).length > 0) {
+      tiles.push(
+        <motion.div
+          key="examStats"
+          className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="rounded-full bg-amber-100 p-2">
+              <Award className="size-5 text-amber-600" />
+            </div>
+            <h4 className="text-sm font-semibold text-slate-700">Wyniki egzaminów</h4>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {Object.entries(details.examStats).map(([label, value], index) => (
+              <div
+                key={`${label}-${index}`}
+                className="flex justify-between items-center py-2 px-3 rounded-xl bg-slate-50"
+              >
+                <span className="text-xs uppercase tracking-wide text-slate-500">{label}</span>
+                <span className="text-sm font-semibold text-slate-700">{value}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      );
+    }
+
+    if (details.profiles && details.profiles.length > 0) {
+      tiles.push(
+        <motion.div
+          key="profiles"
+          className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="rounded-full bg-green-100 p-2">
+              <GraduationCap className="size-5 text-green-600" />
+            </div>
+            <h4 className="text-sm font-semibold text-slate-700">Kierunki</h4>
+          </div>
+          <div className="space-y-3">
+            {details.profiles.map((profile, index) => (
+              <div key={`${profile.name}-${index}`} className="rounded-xl bg-slate-50 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-slate-700">{profile.name}</span>
+                  <span className="text-xs text-slate-500">
+                    {profile.type === 1
+                      ? "Technikum"
+                      : profile.type === 2
+                      ? "Liceum ogólnokształcące"
+                      : profile.type === 3
+                      ? "Branżowa szkoła I stopnia"
+                      : `Typ: ${profile.type}`}
+                  </span>
+                </div>
+                {profile.tags && profile.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {profile.tags.map((tag, tagIndex) => (
+                      <span
+                        key={`${tag}-${tagIndex}`}
+                        className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-600"
+                      >
+                        <Tag className="size-3" />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {profile.extensions && profile.extensions.length > 0 && (
+                  <div className="text-xs text-slate-600">
+                    <span className="font-medium">Rozszerzenia:</span> {profile.extensions.join(", ")}
+                  </div>
+                )}
+                {profile.extensionsOpt && profile.extensionsOpt.length > 0 && (
+                  <div className="text-xs text-slate-600">
+                    <span className="font-medium">Rozszerzenia opcjonalne:</span> {profile.extensionsOpt.join(", ")}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      );
+    }
+
+    // Informacje dodatkowe
+    const additionalInfo = [];
+    if (details.website || details.url) {
+      additionalInfo.push(
+        <div key="website" className="flex items-center gap-2">
+          <Globe className="size-4 text-slate-400" />
+          <a
+            href={details.website || details.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-sky-600 hover:text-sky-700 underline"
+          >
+            Strona internetowa
+          </a>
+        </div>
+      );
+    }
+    if (details.paid !== undefined) {
+      additionalInfo.push(
+        <div key="paid" className="flex items-center gap-2">
+          <DollarSign className="size-4 text-slate-400" />
+          <span className="text-sm text-slate-600">{details.paid ? "Płatne/Niepubliczne" : "Bezpłatne/Publiczne"}</span>
+        </div>
+      );
+    }
+    if (details.likes !== undefined) {
+      additionalInfo.push(
+        <div key="likes" className="flex items-center gap-2">
+          <Users className="size-4 text-slate-400" />
+          <span className="text-sm text-slate-600">{details.likes} polubień</span>
+        </div>
+      );
+    }
+
+    if (additionalInfo.length > 0) {
+      tiles.push(
+        <motion.div
+          key="additional"
+          className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="rounded-full bg-purple-100 p-2">
+              <Sparkles className="size-5 text-purple-600" />
+            </div>
+            <h4 className="text-sm font-semibold text-slate-700">Informacje dodatkowe</h4>
+          </div>
+          <div className="space-y-2">{additionalInfo}</div>
+        </motion.div>
+      );
+    }
+
+    // Tagi
+    if (details.tags && details.tags.length > 0) {
+      tiles.push(
+        <motion.div
+          key="tags"
+          className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="rounded-full bg-rose-100 p-2">
+              <Tag className="size-5 text-rose-600" />
+            </div>
+            <h4 className="text-sm font-semibold text-slate-700">Tagi</h4>
+          </div>
           <div className="flex flex-wrap gap-2">
-            {details.tags.map((tag) => (
-              <span key={tag} className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-600">
+            {details.tags.map((tag, index) => (
+              <span
+                key={`${tag}-${index}`}
+                className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-600"
+              >
                 #{tag}
               </span>
             ))}
           </div>
+        </motion.div>
+      );
+    }
+
+    return (
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto pr-2 text-sm text-slate-600">
+        {tiles.length > 0 ? (
+          <div className="grid gap-4">{tiles}</div>
+        ) : (
+          <div className="text-sm text-slate-400">Brak dodatkowych informacji o tej szkole.</div>
         )}
       </div>
     );
@@ -122,13 +320,20 @@ const SchoolModalContent = ({
       {opinions.length === 0 ? (
         <p className="text-slate-400">Brak opinii. Bądź pierwszą osobą, która ją doda!</p>
       ) : (
-        opinions.map((opinion) => (
-          <div key={opinion._id} className="rounded-2xl bg-white p-3 shadow">
+        opinions.map((opinion, index) => (
+          <div key={`${opinion._id}-${index}`} className="rounded-2xl bg-white p-3 shadow">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-slate-700">{opinion.userName}</span>
               <span className="text-xs text-slate-400">{new Date(opinion.createdAt).toLocaleString()}</span>
             </div>
-            <p className="mt-2 text-slate-600">{opinion.message}</p>
+            <div className="flex items-center gap-1 mt-1">
+              {Array.from({ length: 5 }, (_, i) => (
+                <span key={i} className={`text-sm ${i < opinion.stars ? "text-yellow-400" : "text-slate-300"}`}>
+                  ★
+                </span>
+              ))}
+            </div>
+            <p className="mt-2 text-slate-600">{opinion.content}</p>
             {isOwner(opinion) && (
               <div className="mt-3 flex gap-2 text-xs font-semibold text-sky-500">
                 <button onClick={() => onEditOpinion(opinion)} className="hover:text-sky-600">
@@ -225,6 +430,23 @@ const SchoolModalContent = ({
                 </button>
               )}
               <div className="border-t border-slate-200 bg-white p-4">
+                <div className="mb-3">
+                  <div className="block text-sm font-semibold text-slate-700 mb-2">Ocena</div>
+                  <div className="flex gap-1">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => onStarsChange(i + 1)}
+                        className={`text-2xl ${
+                          i < starsDraft ? "text-yellow-400" : "text-slate-300"
+                        } hover:text-yellow-400 transition`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <textarea
                   className="h-24 w-full resize-none rounded-2xl border border-slate-200 p-3 text-sm focus:border-sky-400 focus:outline-none"
                   placeholder="Podziel się swoją opinią..."
@@ -238,7 +460,7 @@ const SchoolModalContent = ({
                     className="flex items-center gap-2 rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-sky-300"
                   >
                     {isBusy ? <Loader2 className="size-4 animate-spin" /> : <MessageCircle className="size-4" />}
-                    {editingOpinionId ? "Zapisz zmiany" : "Dodaj opinię"}
+                    {editingOpinionId || hasExistingOpinion ? "Zapisz zmiany" : "Dodaj opinię"}
                   </button>
                 </div>
               </div>
@@ -267,6 +489,7 @@ const SchoolModal = ({
   const [opinions, setOpinions] = useState<Opinion[]>([]);
   const [pagination, setPagination] = useState<PaginationState>({ page: 1, total: 0 });
   const [commentDraft, setCommentDraft] = useState("");
+  const [starsDraft, setStarsDraft] = useState(1);
   const [editingOpinionId, setEditingOpinionId] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -310,19 +533,28 @@ const SchoolModal = ({
   );
 
   const handleOpinionSubmit = async () => {
-    if (!school || !commentDraft.trim()) return;
+    if (!school || !commentDraft.trim() || starsDraft < 1 || starsDraft > 5) return;
     setIsBusy(true);
     try {
-      if (editingOpinionId) {
-        const updated = await updateSchoolOpinion(school._id, editingOpinionId, commentDraft.trim());
-        setOpinions((prev: Opinion[]) => prev.map((item: Opinion) => (item._id === updated._id ? updated : item)));
-        setEditingOpinionId(null);
+      const existingOpinion = opinions.find((op) => op.userId === currentUserId);
+      const isUpdating = editingOpinionId !== null || existingOpinion !== undefined;
+      if (isUpdating) {
+        const opinionId = editingOpinionId || existingOpinion!._id;
+        await updateSchoolOpinion(school._id, opinionId, starsDraft, commentDraft.trim(), currentUserId!);
+        setOpinions((prev) =>
+          prev.map((item) =>
+            item._id === opinionId ? { ...item, content: commentDraft.trim(), stars: starsDraft } : item
+          )
+        );
       } else {
-        const created = await addSchoolOpinion(school._id, commentDraft.trim());
-        setOpinions((prev: Opinion[]) => [created, ...prev]);
-        setPagination((prev: PaginationState) => ({ ...prev, total: prev.total + 1 }));
+        await addSchoolOpinion(school._id, starsDraft, commentDraft.trim());
+        const response = await getSchoolOpinions(school._id, 1);
+        setOpinions(response.opinions);
+        setPagination({ page: response.page, total: response.total });
       }
+      setEditingOpinionId(null);
       setCommentDraft("");
+      setStarsDraft(1);
     } catch (err) {
       console.error("Nie udało się zapisać opinii", err);
       setError("Nie udało się zapisać opinii. Spróbuj ponownie.");
@@ -388,10 +620,13 @@ const SchoolModal = ({
 
   const handleEditOpinion = (opinion: Opinion) => {
     setEditingOpinionId(opinion._id);
-    setCommentDraft(opinion.message);
+    setCommentDraft(opinion.content);
+    setStarsDraft(opinion.stars);
   };
 
   const isOwner = (opinion: Opinion) => opinion.userId === currentUserId;
+
+  const hasExistingOpinion = opinions.some(isOwner);
 
   return (
     <AnimatePresence>
@@ -403,16 +638,19 @@ const SchoolModal = ({
           opinions={opinions}
           pagination={pagination}
           commentDraft={commentDraft}
+          starsDraft={starsDraft}
           isBusy={isBusy}
           isLiked={isLiked}
           isUnlocked={isUnlocked}
           allowUnlock={allowUnlock}
           error={error}
           editingOpinionId={editingOpinionId}
+          hasExistingOpinion={hasExistingOpinion}
           onClose={onClose}
           onLikeToggle={handleLikeToggle}
           onUnlock={handleUnlock}
           onCommentChange={setCommentDraft}
+          onStarsChange={setStarsDraft}
           onSubmitComment={handleOpinionSubmit}
           onLoadMore={handleLoadMore}
           onEditOpinion={handleEditOpinion}
