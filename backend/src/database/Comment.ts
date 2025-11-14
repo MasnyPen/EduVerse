@@ -5,6 +5,8 @@ import { Document, Types } from 'mongoose';
 export class Comment extends Document {
   @Prop({ required: true, type: Types.ObjectId, ref: 'User'})
   userId: Types.ObjectId;
+  @Prop({ required: true, type: Types.ObjectId, ref: 'School'})
+  schoolId: Types.ObjectId
   @Prop({ required: true })
   content: String
   @Prop({ required: true })
@@ -13,4 +15,4 @@ export class Comment extends Document {
   likes: Types.ObjectId[]
 }
 
-export const UserSchema = SchemaFactory.createForClass(Comment);
+export const CommentSchema = SchemaFactory.createForClass(Comment);

@@ -8,6 +8,8 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { SchoolsModule } from './schools/schools.module';
+import { CommentsModule } from './schools/comments/comments.module';
+import { CalendarModule } from './calendar/calendar.module';
 
 @Module({
   imports: [
@@ -39,7 +41,8 @@ import { SchoolsModule } from './schools/schools.module';
     // Modules
     AuthModule,
     UsersModule,
-    SchoolsModule
+    SchoolsModule,
+    CalendarModule
   ],
   controllers: [AppController],
   providers: [AppService],
