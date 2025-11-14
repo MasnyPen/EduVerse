@@ -183,24 +183,6 @@ const Login = () => {
               </p>
             </div>
 
-            <div className="mt-6 flex items-center justify-center gap-2 rounded-full bg-slate-100 p-1 text-xs font-semibold text-slate-500">
-              {[
-                { key: "login" as AuthMode, label: "Logowanie" },
-                { key: "register" as AuthMode, label: "Rejestracja" },
-              ].map((option) => (
-                <button
-                  key={option.key}
-                  type="button"
-                  onClick={() => setMode(option.key)}
-                  className={`w-full rounded-full px-4 py-2 transition ${
-                    mode === option.key ? "bg-white text-sky-600 shadow" : "hover:bg-white/70 hover:text-slate-700"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-
             <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
                 <label htmlFor="username" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
