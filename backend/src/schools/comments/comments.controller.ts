@@ -7,7 +7,7 @@ import { JwtAuthGuard } from 'src/auth/jwt-guard.guard';
 @Controller('schools/:schoolId/comments')
 export class CommentsController {
 
-    constructor(private commentsService: CommentsService, private commentModel: Model<Comment>) {}
+    constructor(private commentsService: CommentsService) {}
 
     @Get()
     @UseGuards(JwtAuthGuard)

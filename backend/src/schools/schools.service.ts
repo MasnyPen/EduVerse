@@ -71,7 +71,8 @@ export class SchoolsService {
             $project: {
                 name: 1,
                 _id: 1,
-                img: 1
+                img: 1,
+                coordinates: 1
             }
         }
         ]);

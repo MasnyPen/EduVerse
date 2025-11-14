@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Comment } from 'src/database/Comment';
 
 @Injectable()
 export class CommentsService {
-    constructor(private commentModel: Model<Comment>) {}
+    constructor(@InjectModel(Comment.name) private commentModel: Model<Comment>) {}
 
     async getComments(schoolId: string, page: number, size: number): Promise<Comment[]> {
         const comments =  await this.commentModel.find({schoolId: schoolId}).limit(size).skip(page).lean<Comment[] | void[]>().exec()
