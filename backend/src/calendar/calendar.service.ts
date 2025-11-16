@@ -25,12 +25,12 @@ export class CalendarService {
 
         const todayDate = calendar.dates.find((el) => el.dates.includes(today))
 
-        return todayDate?.title || ""
+        return todayDate?.title || "Brak zaplanowanych wydarzeń na dziś."
     }
 
     async getCalendarByYear(year: number): Promise<Calendar | null> {
-        const calendar = await this.calendarModel.findOne({year: year}).lean<Calendar>().exec()
-
+        const calendar = await this.calendarModel.findOne({year: Number(year)})
+        
         if (calendar == null) {
             throw new NotFoundException("Podany rok nie istnieje.")
         }

@@ -13,7 +13,7 @@ export class UsersController {
         return await this.usersService.getUser(req.user)
     }
 
-    @Post('/user/unlockschool')
+    @Post('unlockschool')
     @UseGuards(JwtAuthGuard)
     async unlockSchool(@Request() req) {
         return await this.usersService.unlockSchool(req.body, req.user)
