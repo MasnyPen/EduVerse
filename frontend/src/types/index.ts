@@ -86,3 +86,24 @@ export interface Calendar {
   year: number;
   dates: CalendarDate[];
 }
+
+export interface CalendarTimeSlot {
+  id: string;
+  label: string;
+  raw: string;
+  start?: string;
+  end?: string;
+  startIso?: string;
+  endIso?: string;
+  durationMinutes?: number | null;
+}
+
+export interface CalendarDaySchedule {
+  isoDate: string;
+  title: string;
+  displayDate: string;
+  timestamp: number;
+  isToday: boolean;
+  isPast: boolean;
+  slots: CalendarTimeSlot[];
+}

@@ -103,14 +103,10 @@ const SchoolModalContent = ({
         </div>
       );
     }
+    const tiles: JSX.Element[] = [];
 
-    if (!details) {
-      return <div className="text-sm text-slate-400">Brak dodatkowych informacji o tej szkole.</div>;
-    }
-
-    const tiles = [];
-
-    if (details.description) {
+    const description = details?.description;
+    if (description) {
       tiles.push(
         <motion.div
           key="description"
@@ -125,12 +121,13 @@ const SchoolModalContent = ({
             </div>
             <h4 className="text-sm font-semibold text-slate-700">Opis szkoły</h4>
           </div>
-          <p className="text-sm text-slate-600 leading-relaxed">{details.description}</p>
+          <p className="text-sm text-slate-600 leading-relaxed">{description}</p>
         </motion.div>
       );
     }
 
-    if (details.examStats && Object.keys(details.examStats).length > 0) {
+    const examStats = details?.examStats;
+    if (examStats && Object.keys(examStats).length > 0) {
       tiles.push(
         <motion.div
           key="examStats"
@@ -146,7 +143,7 @@ const SchoolModalContent = ({
             <h4 className="text-sm font-semibold text-slate-700">Wyniki egzaminów</h4>
           </div>
           <div className="grid grid-cols-1 gap-2">
-            {Object.entries(details.examStats).map(([label, value], index) => (
+            {Object.entries(examStats).map(([label, value], index) => (
               <div
                 key={`${label}-${index}`}
                 className="flex justify-between items-center py-2 px-3 rounded-xl bg-slate-50"
@@ -160,7 +157,8 @@ const SchoolModalContent = ({
       );
     }
 
-    if (details.profiles && details.profiles.length > 0) {
+    const profiles = details?.profiles;
+    if (profiles && profiles.length > 0) {
       tiles.push(
         <motion.div
           key="profiles"
@@ -176,7 +174,7 @@ const SchoolModalContent = ({
             <h4 className="text-sm font-semibold text-slate-700">Kierunki</h4>
           </div>
           <div className="space-y-3">
-            {details.profiles.map((profile, index) => (
+            {profiles.map((profile, index) => (
               <div key={`${profile.name}-${index}`} className="rounded-xl bg-slate-50 p-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-semibold text-slate-700">{profile.name}</span>
@@ -221,13 +219,14 @@ const SchoolModalContent = ({
     }
 
     // Informacje dodatkowe
-    const additionalInfo = [];
-    if (details.website || details.url) {
+    const additionalInfo = [] as JSX.Element[];
+    const website = details?.website || details?.url;
+    if (website) {
       additionalInfo.push(
         <div key="website" className="flex items-center gap-2">
           <Globe className="size-4 text-slate-400" />
           <a
-            href={details.website || details.url}
+            href={website}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-sky-600 hover:text-sky-700 underline"
@@ -237,7 +236,7 @@ const SchoolModalContent = ({
         </div>
       );
     }
-    if (details.paid !== undefined) {
+    if (details?.paid !== undefined) {
       additionalInfo.push(
         <div key="paid" className="flex items-center gap-2">
           <DollarSign className="size-4 text-slate-400" />
@@ -245,7 +244,7 @@ const SchoolModalContent = ({
         </div>
       );
     }
-    if (details.likes !== undefined) {
+    if (details?.likes !== undefined) {
       additionalInfo.push(
         <div key="likes" className="flex items-center gap-2">
           <Users className="size-4 text-slate-400" />
@@ -275,7 +274,7 @@ const SchoolModalContent = ({
     }
 
     // Tagi
-    if (details.tags && details.tags.length > 0) {
+    if (details?.tags && details.tags.length > 0) {
       tiles.push(
         <motion.div
           key="tags"

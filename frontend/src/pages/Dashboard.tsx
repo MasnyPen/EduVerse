@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertCircle, BarChart3, Clock3, Heart, Info, LogIn, School, Sparkles, X } from "lucide-react";
 import AppShell from "../components/AppShell";
+import CalendarModal from "../components/CalendarModal";
+import CalendarWidget from "../components/CalendarWidget";
 import Loader from "../components/Loader";
 import Map3DScene from "../components/Map3DScene";
 import SchoolModal from "../components/SchoolModal";
@@ -10,6 +12,8 @@ import type { Coordinates, SchoolSummary } from "../types";
 import { MAP_DEFAULT_RADIUS_METERS } from "../utils/constants";
 import { annotateDistances } from "../utils/distance";
 import { getCurrentPosition, watchUserPosition } from "../utils/geolocation";
+import { useCalendarSchedule } from "../hooks/useCalendarSchedule";
+import { useCalendarToday } from "../hooks/useCalendarToday";
 import { useUserStore, type UserStoreState } from "../store/userStore";
 
 const MAX_LISTED_SCHOOLS = 5;
@@ -25,6 +29,14 @@ const Dashboard = () => {
   const [geoError, setGeoError] = useState<string | null>(null);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel | null>(null);
+  const { title: todayTitle, isLoading: isTodayLoading, error: todayError, refetch: refetchToday } = useCalendarToday();
+  const {
+    days: calendarDays,
+    isLoading: isCalendarLoading,
+    error: calendarError,
+    refetch: refetchCalendar,
+  } = useCalendarSchedule({ locale: "pl-PL" });
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
@@ -314,6 +326,10 @@ const Dashboard = () => {
   const displayName = (user?.displayName ?? user?.username ?? "Gościu").trim() || "Gościu";
   const greetingMessage = user ? `Witaj ${displayName}!` : `Witaj, ${displayName}!`;
   const isGuest = !user;
+  const todayDate = new Date();
+  const dayName = new Intl.DateTimeFormat("pl-PL", { weekday: "short" }).format(todayDate).replace(/\.$/, "");
+  const dayNumber = new Intl.DateTimeFormat("pl-PL", { day: "2-digit" }).format(todayDate);
+  const calendarWidgetTitle = todayTitle ?? "Brak zaplanowanych wydarzeń na dziś.";
   const closeMobilePanel = useCallback(() => {
     setActiveMobilePanel(null);
   }, []);
@@ -331,6 +347,17 @@ const Dashboard = () => {
     },
     [closeMobilePanel]
   );
+  const handleOpenCalendar = useCallback(() => {
+    setIsCalendarOpen(true);
+    refetchCalendar();
+  }, [refetchCalendar]);
+  const handleCloseCalendar = useCallback(() => {
+    setIsCalendarOpen(false);
+  }, []);
+  const handleRefreshCalendar = useCallback(() => {
+    refetchCalendar();
+    refetchToday();
+  }, [refetchCalendar, refetchToday]);
   const mobilePanelTitles: Record<MobilePanel, string> = {
     greeting: isGuest ? "Witaj w EduVerse" : "Twój profil",
     schools: "Najbliższe szkoły",
@@ -359,43 +386,55 @@ const Dashboard = () => {
             case "greeting":
               return (
                 <div className="space-y-4 text-sm text-slate-600">
-                  <p className="text-base font-semibold text-slate-700">{greetingMessage}</p>
-                  {isGuest ? (
-                    <>
-                      <p>
-                        Zaloguj się, aby odkrywać i odblokowywać szkoły w swojej okolicy oraz zapisywać ulubione
-                        miejsca.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={handleMobileLogin}
-                        className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-                      >
-                        <LogIn className="size-4" />
-                        <span>Zaloguj się</span>
-                      </button>
-                    </>
-                  ) : (
-                    <div className="space-y-3">
-                      <p>Miło Cię widzieć, {displayName}. Kontynuuj eksplorację EduVerse!</p>
-                      <div className="grid gap-3">
-                        <div className="flex items-center justify-between rounded-2xl bg-slate-100 px-4 py-3">
-                          <span className="text-slate-500">Polubione szkoły</span>
-                          <span className="flex items-center gap-2 font-semibold text-slate-800">
-                            <Heart className="size-4 text-rose-500" />
-                            {likedSchools.length}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between rounded-2xl bg-slate-100 px-4 py-3">
-                          <span className="text-slate-500">Odblokowane szkoły</span>
-                          <span className="flex items-center gap-2 font-semibold text-slate-800">
-                            <Sparkles className="size-4 text-amber-500" />
-                            {unlockedSchools.length}
-                          </span>
+                  <div className="space-y-3">
+                    <p className="text-base font-semibold text-slate-700">{greetingMessage}</p>
+                    {isGuest ? (
+                      <>
+                        <p>
+                          Zaloguj się, aby odkrywać i odblokowywać szkoły w swojej okolicy oraz zapisywać ulubione
+                          miejsca.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleMobileLogin}
+                          className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                        >
+                          <LogIn className="size-4" />
+                          <span>Zaloguj się</span>
+                        </button>
+                      </>
+                    ) : (
+                      <div className="space-y-3">
+                        <p>Miło Cię widzieć, {displayName}. Kontynuuj eksplorację EduVerse!</p>
+                        <div className="grid gap-3">
+                          <div className="flex items-center justify-between rounded-2xl bg-slate-100 px-4 py-3">
+                            <span className="text-slate-500">Polubione szkoły</span>
+                            <span className="flex items-center gap-2 font-semibold text-slate-800">
+                              <Heart className="size-4 text-rose-500" />
+                              {likedSchools.length}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-2xl bg-slate-100 px-4 py-3">
+                            <span className="text-slate-500">Odblokowane szkoły</span>
+                            <span className="flex items-center gap-2 font-semibold text-slate-800">
+                              <Sparkles className="size-4 text-amber-500" />
+                              {unlockedSchools.length}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  <CalendarWidget
+                    dayName={dayName}
+                    dayNumber={dayNumber}
+                    eventTitle={calendarWidgetTitle}
+                    isLoading={isTodayLoading}
+                    error={todayError}
+                    onRetry={refetchToday}
+                    onOpen={handleOpenCalendar}
+                    className="w-full"
+                  />
                 </div>
               );
             case "schools": {
@@ -505,28 +544,39 @@ const Dashboard = () => {
                   <span>Zaloguj się, aby odkrywać i odblokowywać szkoły w swojej okolicy.</span>
                 </div>
               )}
-
-              <div className="mt-6 grid gap-3">
-                <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                  <span className="text-sm font-medium text-slate-500">Polubione szkoły</span>
-                  <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-                    <Heart className="size-4 text-rose-500" />
-                    {likedSchools.length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                  <span className="text-sm font-medium text-slate-500">Odblokowane szkoły</span>
-                  <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-                    <Sparkles className="size-4 text-amber-500" />
-                    {unlockedSchools.length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                  <span className="text-sm font-medium text-slate-500">Historia wizyt</span>
-                  <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-                    <Clock3 className="size-4 text-sky-500" />
-                    {visitedSchools.length}
-                  </span>
+              <div className="mt-6 flex flex-col gap-4">
+                <CalendarWidget
+                  dayName={dayName}
+                  dayNumber={dayNumber}
+                  eventTitle={calendarWidgetTitle}
+                  isLoading={isTodayLoading}
+                  error={todayError}
+                  onRetry={refetchToday}
+                  onOpen={handleOpenCalendar}
+                  className="w-full"
+                />
+                <div className="grid gap-3">
+                  <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                    <span className="text-sm font-medium text-slate-500">Polubione szkoły</span>
+                    <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+                      <Heart className="size-4 text-rose-500" />
+                      {likedSchools.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                    <span className="text-sm font-medium text-slate-500">Odblokowane szkoły</span>
+                    <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+                      <Sparkles className="size-4 text-amber-500" />
+                      {unlockedSchools.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                    <span className="text-sm font-medium text-slate-500">Historia wizyt</span>
+                    <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+                      <Clock3 className="size-4 text-sky-500" />
+                      {visitedSchools.length}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -655,6 +705,15 @@ const Dashboard = () => {
           </div>
         </div>
       ) : null}
+
+      <CalendarModal
+        open={isCalendarOpen}
+        onClose={handleCloseCalendar}
+        days={calendarDays}
+        isLoading={isCalendarLoading}
+        error={calendarError}
+        onRefresh={handleRefreshCalendar}
+      />
 
       <SchoolModal
         school={selectedSchool}
