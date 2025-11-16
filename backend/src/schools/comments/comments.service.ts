@@ -13,7 +13,7 @@ export class CommentsService {
         const users = await this.userModel.find({_id: { $in: comments.map<Comment>((el) => el.userId) }});
 
         return comments.map<Comment>((el) => {
-            if (el.likes.includes(userId)) {
+            if (el.likes.some(el => el.toString() === userId)) {
                 el.liked = true
             }
 
