@@ -1,6 +1,7 @@
 import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { SchoolsService } from './schools.service';
 import { JwtAuthGuard } from 'src/auth/jwt-guard.guard';
+import { SchoolUnlockedGuard } from 'src/guards/school-unlocked.guard';
 
 @Controller('schools')
 export class SchoolsController {
@@ -13,24 +14,24 @@ export class SchoolsController {
         return this.schoolsService.searchSchoolsByRadius(req, +radius)
     }
 
-    @UseGuards(JwtAuthGuard)
-    @Get(':id')
+    @UseGuards(JwtAuthGuard, SchoolUnlockedGuard)
+    @Get(':schoolId')
     @HttpCode(HttpStatus.OK)
-    async getSchool(@Param('id') id) {
-        return this.schoolsService.getSchool(id)
+    async getSchool(@Request() req, @Param('schoolId') id) {
+        return this.schoolsService.getSchool(id, req.user.userId)
     }
 
-    @UseGuards(JwtAuthGuard)
-    @Post(':id/likes')
+    @UseGuards(JwtAuthGuard, SchoolUnlockedGuard)
+    @Post(':schoolId/likes')
     @HttpCode(HttpStatus.OK)
-    async addLikeToSchool(@Param('id') schoolId, @Request() req) {
-        return this.schoolsService.addLikesToSchool(schoolId, req.user._id)
+    async addLikeToSchool(@Param('schoolId') schoolId, @Request() req) {
+        return this.schoolsService.addLikeToSchool(schoolId, req.user.userId)
     }
 
-    @UseGuards(JwtAuthGuard)
-    @Delete(':id/likes')
+    @UseGuards(JwtAuthGuard, SchoolUnlockedGuard)
+    @Delete(':schoolId/likes')
     @HttpCode(HttpStatus.OK)
-    async removeLikeFromSchool(@Param('id') schoolId, @Request() req) {
-        return this.schoolsService.removeLikesFromSchool(schoolId, req.user._id)
+    async removeLikeFromSchool(@Param('schoolId') schoolId, @Request() req) {
+        return this.schoolsService.removeLikeFromSchool(schoolId, req.user.userId)
     }
 }

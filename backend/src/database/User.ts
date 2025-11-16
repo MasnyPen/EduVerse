@@ -15,3 +15,10 @@ export class User extends Document {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+export interface UserDetails {
+  userId: string,
+  username: string,
+  likes?: string[],
+  schoolsHistory?: string[]
+}

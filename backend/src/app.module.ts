@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { SchoolsModule } from './schools/schools.module';
 import { CommentsModule } from './schools/comments/comments.module';
 import { CalendarModule } from './calendar/calendar.module';
+import { GuardsModule } from './guards/guards.module';
 
 @Module({
   imports: [
@@ -42,7 +43,8 @@ import { CalendarModule } from './calendar/calendar.module';
     AuthModule,
     UsersModule,
     SchoolsModule,
-    CalendarModule
+    CalendarModule,
+    GuardsModule
   ],
   controllers: [AppController],
   providers: [AppService],

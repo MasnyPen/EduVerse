@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Comment } from 'src/database/Comment';
 import { User } from 'src/database/User';
 
@@ -8,13 +8,15 @@ import { User } from 'src/database/User';
 export class CommentsService {
     constructor(@InjectModel(Comment.name) private commentModel: Model<Comment>, @InjectModel(User.name) private userModel: Model<User>) {}
 
-    async getComments(schoolId: string, page: number, size: number): Promise<any[]> {
+    async getComments(schoolId: string, page: number, size: number, userId: string): Promise<any[]> {
         const comments =  await this.commentModel.find({schoolId: schoolId}).limit(size).skip(page).lean<Comment[] | void[]>().exec()
         const users = await this.userModel.find({_id: { $in: comments.map<Comment>((el) => el.userId) }});
 
-
-
         return comments.map<Comment>((el) => {
+            if (el.likes.includes(userId)) {
+                el.liked = true
+            }
+
             const likes = el.likes?.length || 0
             el.likes = likes
 
@@ -62,5 +64,47 @@ export class CommentsService {
 
     async deleteComment(id: string): Promise<void> {
         await this.commentModel.findByIdAndDelete(id)
+    }
+
+    async addLikeToComment(comId: string, userId: string) {
+        const userObjectId = new Types.ObjectId(userId);
+        const comment = await this.commentModel.findById(comId);
+
+        if (!comment) throw new Error("Komentarz nie istnieje.");
+
+        try {
+            await this.commentModel.updateOne(
+                { _id: comId },
+                { $addToSet: { likes: userObjectId } }
+            );
+        } catch (e) {
+            throw new HttpException(
+                    { message: 'Wystąpił błąd w dodawaniu polubienia.' },
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    );
+        }
+
+        return 
+    }
+
+    async removeLikeToComment(comId: string, userId: string) {
+        const userObjectId = new Types.ObjectId(userId);
+        const comment = await this.commentModel.findById(comId);
+
+        if (!comment) throw new Error("Komentarz nie istnieje.");
+
+        try {
+            await this.commentModel.updateOne(
+                { _id: comId },
+                { $pull: { likes: userObjectId } }
+            );
+        } catch (e) {
+            throw new HttpException(
+                    { message: 'Wystąpił błąd w dodawaniu polubienia.' },
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    );
+        }
+
+        return
     }
 }
