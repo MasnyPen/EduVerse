@@ -8,7 +8,7 @@ export class SchoolsController {
 
     constructor(private schoolsService: SchoolsService) {}
 
-    @Get('search')
+    @Post('search')
     @HttpCode(HttpStatus.OK)
     async searchSchoolsByRadius(@Request() req, @Query('r') radius = 3) {
         return this.schoolsService.searchSchoolsByRadius(req, +radius)
