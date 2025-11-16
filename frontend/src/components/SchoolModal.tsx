@@ -37,6 +37,7 @@ interface SchoolModalProps {
   onUnlock: (schoolId: string) => Promise<void>;
   onLike: (schoolId: string) => Promise<void>;
   onUnlike: (schoolId: string) => Promise<void>;
+  currentUserId?: string;
 }
 
 interface PaginationState {

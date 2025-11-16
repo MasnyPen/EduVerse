@@ -11,7 +11,9 @@ export interface RadiusSchoolResponseDto {
   banner?: string | null;
   baner?: string | null;
   bannerUrl?: string | null;
+  img?: string | null;
   logoUrl?: string | null;
+  _id?: string;
   coordinates?: {
     latitude?: NullableNumeric;
     longitude?: NullableNumeric;
