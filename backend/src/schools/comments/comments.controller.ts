@@ -1,7 +1,5 @@
 import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query, Request, UseGuards } from '@nestjs/common';
 import { CommentsService } from './comments.service';
-import { Model } from 'mongoose';
-import { Comment } from 'src/database/Comment';
 import { JwtAuthGuard } from 'src/auth/jwt-guard.guard';
 
 @Controller('schools/:schoolId/comments')
@@ -20,20 +18,20 @@ export class CommentsController {
     @UseGuards(JwtAuthGuard)
     @HttpCode(HttpStatus.OK)
     async createComment(@Request() req, @Param('schoolId') schoolId: string) {
-        return await this.commentsService.createComment(req.body, schoolId, req.user)
+        return await this.commentsService.createComment(req.body, schoolId, req.user.userId)
     }
 
     @Put(':id')
     @UseGuards(JwtAuthGuard)
     @HttpCode(HttpStatus.OK)
     async updateComment(@Request() req, @Param('id') id: string) {
-        return await this.commentsService.updateComment(req.body, id, req.user.sub)
+        return await this.commentsService.updateComment(req.body, id, req.user.userId)
     }
 
     @Delete (':id')
     @UseGuards(JwtAuthGuard)
     @HttpCode(HttpStatus.OK)
-    async deleteComment( @Param('id') id: string) {
+    async deleteComment(@Param('id') id: string) {
         return await this.commentsService.deleteComment(id)
     }
 
