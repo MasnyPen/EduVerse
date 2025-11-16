@@ -1,6 +1,6 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { School } from 'src/database/School';
 
 @Injectable()
@@ -81,7 +81,7 @@ export class SchoolsService {
     }
 
 
-    async getSchool(id: string): Promise<any> {
+    async getSchool(id: string, userId: string): Promise<any> {
         const school = await this.schoolModel.findById(id).lean<School>().exec()
 
         if (school != null) {
@@ -90,6 +90,7 @@ export class SchoolsService {
 
             const newSchool = {
                 likes: likes?.length || 0,
+                liked: likes.map(el => String(el)).includes(userId),
                 ...results
             }
 
@@ -99,29 +100,41 @@ export class SchoolsService {
         }
     }
 
-    async addLikesToSchool(schoolId: string, userId: string): Promise<any> {
+    async addLikeToSchool(schoolId: string, userId: string): Promise<void> {
+        const userObjectId = new Types.ObjectId(userId);
+        const school = await this.schoolModel.findById(schoolId);
+
+        if (!school) throw new Error("Szkoła nie istnieje.");
+
         try {
-            this.schoolModel.findByIdAndUpdate(schoolId, { $push: {
-                likes: userId
-            }})
+            await this.schoolModel.updateOne(
+                { _id: schoolId },
+                { $addToSet: { likes: userObjectId } }
+            );
         } catch (e) {
             throw new HttpException(
-                    { message: 'Wystąpił błąd w dodawaniu polubienia.' },
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                  );
+                { message: 'Wystąpił błąd w dodawaniu polubienia.' },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 
-    async removeLikesFromSchool(schoolId: string, userId: string): Promise<any> {
+    async removeLikeFromSchool(schoolId: string, userId: string): Promise<void> {
+        const userObjectId = new Types.ObjectId(userId);
+        const school = await this.schoolModel.findById(schoolId);
+
+        if (!school) throw new Error("Szkoła nie istnieje.");
+
         try {
-            this.schoolModel.findByIdAndUpdate(schoolId, { $pull: {
-                likes: userId
-            }})
+            await this.schoolModel.updateOne(
+                { _id: schoolId },
+                { $pull: { likes: userObjectId } }
+            );
         } catch (e) {
             throw new HttpException(
-                    { message: 'Wystąpił błąd w dodawaniu polubienia.' },
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                  );
+                { message: 'Wystąpił błąd w usuwaniu polubienia.' },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
         }
     }
 }
