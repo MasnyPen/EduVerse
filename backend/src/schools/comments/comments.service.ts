@@ -25,8 +25,10 @@ export class CommentsService {
     }
 
     async createComment(body: {stars: number, content: string}, schoolId: string, userId: string): Promise<boolean> {
-        if (!body.content || typeof body.stars != 'number')
-  
+        if (!body.content || typeof body.stars != 'number') {
+            throw new BadRequestException("Komenatrz musi posiadać treść i ocene")
+        }
+
         await this.commentModel.create({
             userId: userId,
             schoolId: schoolId,
@@ -49,9 +51,9 @@ export class CommentsService {
             throw new UnauthorizedException("Komentarz nie należy do ciebie albo nie istnieje.");
         }
 
-        comment.content = body.content;
-        comment.stars = body.stars;
-
+        if (body.content) comment.content = body.content;
+        if (comment.stars) comment.stars = body.stars;
+        
         await comment.save();
 
         return comment;
