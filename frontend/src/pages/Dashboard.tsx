@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertCircle, BarChart3, Clock3, Heart, Info, LogIn, School, Sparkles, X } from "lucide-react";
+import { AlertCircle, BarChart3, Heart, Info, LogIn, School, Sparkles, X } from "lucide-react";
 import AppShell from "../components/AppShell";
 import CalendarModal from "../components/CalendarModal";
 import CalendarWidget from "../components/CalendarWidget";
@@ -51,33 +51,18 @@ const Dashboard = () => {
     };
   }, []);
 
-  const {
-    token,
-    user,
-    hydrateUser,
-    refreshLiked,
-    refreshUnlocked,
-    refreshVisited,
-    likedSchools,
-    unlockedSchools,
-    visitedSchools,
-    like,
-    unlike,
-    unlock,
-  } = useUserStore((state: UserStoreState) => ({
-    token: state.token,
-    user: state.user,
-    hydrateUser: state.hydrateUser,
-    refreshLiked: state.refreshLiked,
-    refreshUnlocked: state.refreshUnlocked,
-    refreshVisited: state.refreshVisited,
-    likedSchools: state.likedSchools,
-    unlockedSchools: state.unlockedSchools,
-    visitedSchools: state.visitedSchools,
-    like: state.like,
-    unlike: state.unlike,
-    unlock: state.unlock,
-  }));
+  const { token, user, hydrateUser, likedSchools, unlockedSchools, like, unlike, unlock } = useUserStore(
+    (state: UserStoreState) => ({
+      token: state.token,
+      user: state.user,
+      hydrateUser: state.hydrateUser,
+      likedSchools: state.likedSchools,
+      unlockedSchools: state.unlockedSchools,
+      like: state.like,
+      unlike: state.unlike,
+      unlock: state.unlock,
+    })
+  );
 
   const bootstrappedUser = useRef(false);
   const latestPositionRef = useRef<Coordinates | null>(null);
@@ -148,10 +133,7 @@ const Dashboard = () => {
     }
     bootstrappedUser.current = true;
     void hydrateUser();
-    void refreshLiked();
-    void refreshUnlocked();
-    void refreshVisited();
-  }, [token, hydrateUser, refreshLiked, refreshUnlocked, refreshVisited]);
+  }, [token, hydrateUser]);
 
   const fetchSchools = useCallback(async (coords: Coordinates): Promise<boolean> => {
     if (isFetchingSchoolsRef.current) {
@@ -262,11 +244,8 @@ const Dashboard = () => {
     [schools, selectedSchoolId]
   );
 
-  const likedSchoolIds = useMemo(
-    () => new Set(likedSchools.filter((entry) => entry.school).map((entry) => entry.school._id)),
-    [likedSchools]
-  );
-  const unlockedSchoolIds = useMemo(() => new Set(unlockedSchools.map((entry) => entry._id)), [unlockedSchools]);
+  const likedSchoolIds = useMemo(() => new Set(likedSchools), [likedSchools]);
+  const unlockedSchoolIds = useMemo(() => new Set(unlockedSchools), [unlockedSchools]);
 
   const nearestSchools = useMemo(() => {
     if (schools.length === 0) return [] as SchoolSummary[];
@@ -282,15 +261,13 @@ const Dashboard = () => {
       }
       try {
         await unlock(schoolId);
-        await refreshUnlocked();
-        await refreshVisited();
         setSchools((prev) => prev.map((item) => (item._id === schoolId ? { ...item, unlocked: true } : item)));
       } catch (error) {
         console.error("Automatyczne odblokowanie szkoły nie powiodło się", error);
         throw error;
       }
     },
-    [token, unlock, refreshUnlocked, refreshVisited]
+    [token, unlock]
   );
 
   const handleManualUnlock = useCallback(
@@ -570,13 +547,6 @@ const Dashboard = () => {
                       {unlockedSchools.length}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                    <span className="text-sm font-medium text-slate-500">Historia wizyt</span>
-                    <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-                      <Clock3 className="size-4 text-sky-500" />
-                      {visitedSchools.length}
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -721,8 +691,6 @@ const Dashboard = () => {
         onUnlock={handleManualUnlock}
         onLike={handleLike}
         onUnlike={handleUnlike}
-        isLiked={selectedSchool ? likedSchoolIds.has(selectedSchool._id) : false}
-        isUnlocked={selectedSchool ? unlockedSchoolIds.has(selectedSchool._id) : false}
         currentUserId={user?._id}
       />
     </AppShell>

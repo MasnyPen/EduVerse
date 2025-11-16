@@ -47,6 +47,8 @@ export interface Opinion {
   stars: number;
   createdAt: string;
   updatedAt?: string;
+  liked: boolean;
+  likes: number;
 }
 
 export interface PaginatedOpinions {
@@ -73,6 +75,8 @@ export interface UserProfile {
   username: string;
   displayName?: string;
   avatarUrl?: string;
+  likes?: string[];
+  schoolsHistory?: string[];
 }
 
 export interface CalendarDate {

@@ -1,20 +1,70 @@
-import { useMemo } from "react";
-import { Heart, NotebookPen, Sparkles } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Heart, Sparkles, School } from "lucide-react";
 import AppShell from "../components/AppShell";
-import type { SchoolSummary } from "../types";
+import SchoolModal from "../components/SchoolModal";
+import { getSchoolDetails } from "../api/schools";
 import { useUserStore, type UserStoreState } from "../store/userStore";
-
-const formatSchoolName = (school: SchoolSummary) => school.name ?? "Nieznana szkoła";
+import type { SchoolDetails } from "../types";
 
 const Profile = () => {
-  const { user, likedSchools, unlockedSchools, visitedSchools } = useUserStore((state: UserStoreState) => ({
-    user: state.user,
-    likedSchools: state.likedSchools,
-    unlockedSchools: state.unlockedSchools,
-    visitedSchools: state.visitedSchools,
-  }));
+  const { user, token, hydrateUser, likedSchools, unlockedSchools, like, unlike, unlock } = useUserStore(
+    (state: UserStoreState) => ({
+      user: state.user,
+      token: state.token,
+      hydrateUser: state.hydrateUser,
+      likedSchools: state.likedSchools,
+      unlockedSchools: state.unlockedSchools,
+      like: state.like,
+      unlike: state.unlike,
+      unlock: state.unlock,
+    })
+  );
 
-  const unlockedById = useMemo(() => new Set(unlockedSchools.map((school) => school._id)), [unlockedSchools]);
+  const [selectedSchool, setSelectedSchool] = useState<SchoolDetails | null>(null);
+  const [schoolNames, setSchoolNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (token && !user) {
+      hydrateUser();
+    }
+  }, [token, user, hydrateUser]);
+
+  useEffect(() => {
+    const allIds = [...new Set([...likedSchools, ...unlockedSchools])];
+    if (allIds.length === 0) return;
+    const fetches = allIds.map((id) => getSchoolDetails(id).then((details) => ({ id, name: details.name })));
+    Promise.all(fetches)
+      .then((results) => {
+        const names = results.reduce((acc, { id, name }) => ({ ...acc, [id]: name }), {});
+        setSchoolNames(names);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch school names", error);
+      });
+  }, [likedSchools, unlockedSchools]);
+
+  const handleSchoolClick = async (schoolId: string) => {
+    try {
+      const details = await getSchoolDetails(schoolId);
+      setSelectedSchool(details);
+    } catch (error) {
+      console.error("Failed to fetch school details", error);
+    }
+  };
+
+  const handleCloseModal = () => setSelectedSchool(null);
+
+  const handleLike = async (schoolId: string) => {
+    await like(schoolId);
+  };
+
+  const handleUnlike = async (schoolId: string) => {
+    await unlike(schoolId);
+  };
+
+  const handleUnlock = async (schoolId: string) => {
+    await unlock(schoolId);
+  };
 
   return (
     <AppShell>
@@ -27,7 +77,7 @@ const Profile = () => {
                 ? `Witaj ponownie, ${user.displayName ?? user.username}!`
                 : "Zaloguj się, aby zapisać swoje postępy."}
             </p>
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 p-4">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Polubione</span>
                 <p className="mt-2 flex items-center gap-2 text-xl font-semibold text-slate-800">
@@ -40,13 +90,6 @@ const Profile = () => {
                 <p className="mt-2 flex items-center gap-2 text-xl font-semibold text-slate-800">
                   <Sparkles className="size-5 text-amber-500" />
                   {unlockedSchools.length}
-                </p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Odwiedzone</span>
-                <p className="mt-2 flex items-center gap-2 text-xl font-semibold text-slate-800">
-                  <NotebookPen className="size-5 text-sky-500" />
-                  {visitedSchools.length}
                 </p>
               </div>
             </div>
@@ -81,9 +124,14 @@ const Profile = () => {
             ) : (
               <ul className="mt-4 space-y-3 text-sm">
                 {likedSchools.slice(0, 6).map((entry) => (
-                  <li key={entry._id} className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">
-                    <p className="font-semibold">{formatSchoolName(entry.school)}</p>
-                    <p className="text-xs text-slate-500">{new Date(entry.likedAt).toLocaleString()}</p>
+                  <li key={entry}>
+                    <button
+                      onClick={() => handleSchoolClick(entry)}
+                      className="flex w-full items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-left text-slate-700 hover:bg-slate-100 transition"
+                    >
+                      <School className="size-4 text-slate-500" />
+                      <span className="font-semibold">{schoolNames[entry] || "Ładowanie..."}</span>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -91,23 +139,34 @@ const Profile = () => {
           </div>
           <div className="rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5">
             <h2 className="text-lg font-semibold text-slate-800">Historia odblokowań</h2>
-            {visitedSchools.length === 0 ? (
+            {unlockedSchools.length === 0 ? (
               <p className="mt-4 text-sm text-slate-500">Brak odblokowanych szkół.</p>
             ) : (
               <ul className="mt-4 space-y-3 text-sm">
-                {visitedSchools.slice(0, 6).map((entry) => (
-                  <li key={entry._id} className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">
-                    <p className="font-semibold">{formatSchoolName(entry.school)}</p>
-                    <p className="text-xs text-slate-500">
-                      {unlockedById.has(entry.school._id) ? "Odblokowana" : "Odwiedzona"} •{" "}
-                      {new Date(entry.visitedAt).toLocaleString()}
-                    </p>
+                {unlockedSchools.slice(0, 6).map((entry) => (
+                  <li key={entry}>
+                    <button
+                      onClick={() => handleSchoolClick(entry)}
+                      className="flex w-full items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-left text-slate-700 hover:bg-slate-100 transition"
+                    >
+                      <School className="size-4 text-slate-500" />
+                      <span className="font-semibold">{schoolNames[entry] || "Ładowanie..."}</span>
+                    </button>
                   </li>
                 ))}
               </ul>
             )}
           </div>
         </section>
+
+        <SchoolModal
+          school={selectedSchool}
+          onClose={handleCloseModal}
+          onUnlock={handleUnlock}
+          onLike={handleLike}
+          onUnlike={handleUnlike}
+          currentUserId={user?._id}
+        />
       </div>
     </AppShell>
   );

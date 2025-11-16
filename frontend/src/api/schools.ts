@@ -84,11 +84,14 @@ export const getSchoolOpinions = async (schoolId: string, page = 1): Promise<Pag
   type BackendOpinion = {
     _id?: string;
     id?: string;
-    userId: { _id: string; username: string };
+    userId: string;
+    username: string;
     content: string;
     stars: number;
     createdAt: string | null;
     updatedAt?: string | null;
+    liked: boolean;
+    likes: number;
   };
 
   try {
@@ -103,12 +106,14 @@ export const getSchoolOpinions = async (schoolId: string, page = 1): Promise<Pag
 
     const mappedOpinions = items.map((item) => ({
       _id: item._id || item.id || "",
-      userId: item.userId._id,
-      userName: item.userId.username,
+      userId: item.userId,
+      userName: item.username,
       content: item.content,
       stars: item.stars,
       createdAt: item.createdAt || new Date().toISOString(),
       updatedAt: item.updatedAt || undefined,
+      liked: item.liked,
+      likes: item.likes,
     }));
 
     return {
@@ -156,6 +161,8 @@ export const addSchoolOpinion = async (schoolId: string, stars: number, content:
       stars: stars,
       createdAt: data.createdAt || new Date().toISOString(),
       updatedAt: data.updatedAt || undefined,
+      liked: false,
+      likes: 0,
     };
   }
 
@@ -167,6 +174,8 @@ export const addSchoolOpinion = async (schoolId: string, stars: number, content:
     stars: stars,
     createdAt: data.createdAt || new Date().toISOString(),
     updatedAt: data.updatedAt || undefined,
+    liked: false,
+    likes: 0,
   };
 };
 
@@ -203,6 +212,8 @@ export const updateSchoolOpinion = async (
       stars: stars,
       createdAt: data.createdAt || new Date().toISOString(),
       updatedAt: data.updatedAt || undefined,
+      liked: false,
+      likes: 0,
     };
   }
 
@@ -214,6 +225,8 @@ export const updateSchoolOpinion = async (
     stars: stars,
     createdAt: data.createdAt || new Date().toISOString(),
     updatedAt: data.updatedAt || undefined,
+    liked: false,
+    likes: 0,
   };
 };
 
@@ -227,4 +240,12 @@ export const likeSchool = async (schoolId: string): Promise<void> => {
 
 export const unlikeSchool = async (schoolId: string): Promise<void> => {
   await api.delete(`/schools/${schoolId}/likes`);
+};
+
+export const likeComment = async (schoolId: string, commentId: string): Promise<void> => {
+  await api.post(`/schools/${schoolId}/comments/${commentId}/likes`);
+};
+
+export const unlikeComment = async (schoolId: string, commentId: string): Promise<void> => {
+  await api.delete(`/schools/${schoolId}/comments/${commentId}/likes`);
 };

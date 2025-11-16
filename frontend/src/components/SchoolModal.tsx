@@ -1,5 +1,5 @@
 import type { JSX } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Heart,
@@ -15,6 +15,8 @@ import {
   Users,
   GraduationCap,
   Tag,
+  User,
+  Calculator,
 } from "lucide-react";
 import {
   addSchoolOpinion,
@@ -22,9 +24,12 @@ import {
   getSchoolDetails,
   getSchoolOpinions,
   updateSchoolOpinion,
+  likeComment,
+  unlikeComment,
 } from "../api/schools";
 import type { Opinion, SchoolDetails, SchoolSummary } from "../types";
 import { MAP_UNLOCK_RADIUS_METERS } from "../utils/constants";
+import { useUserStore } from "../store/userStore";
 
 interface SchoolModalProps {
   school: SchoolSummary | null;
@@ -32,9 +37,6 @@ interface SchoolModalProps {
   onUnlock: (schoolId: string) => Promise<void>;
   onLike: (schoolId: string) => Promise<void>;
   onUnlike: (schoolId: string) => Promise<void>;
-  isLiked: boolean;
-  isUnlocked: boolean;
-  currentUserId?: string;
 }
 
 interface PaginationState {
@@ -51,12 +53,11 @@ interface SchoolModalContentProps {
   commentDraft: string;
   starsDraft: number;
   isBusy: boolean;
-  isLiked: boolean;
-  isUnlocked: boolean;
   allowUnlock: boolean;
   error: string | null;
   editingOpinionId: string | null;
-  hasExistingOpinion: boolean;
+  isLikingSchool: boolean;
+  isLikingComment: Map<string, boolean>;
   onClose: () => void;
   onLikeToggle: () => void;
   onUnlock: () => void;
@@ -66,6 +67,8 @@ interface SchoolModalContentProps {
   onLoadMore: () => void;
   onEditOpinion: (opinion: Opinion) => void;
   onDeleteOpinion: (opinionId: string) => void;
+  onLikeComment: (commentId: string) => void;
+  onUnlikeComment: (commentId: string) => void;
   isOwner: (opinion: Opinion) => boolean;
 }
 
@@ -78,12 +81,11 @@ const SchoolModalContent = ({
   commentDraft,
   starsDraft,
   isBusy,
-  isLiked,
-  isUnlocked,
   allowUnlock,
   error,
   editingOpinionId,
-  hasExistingOpinion,
+  isLikingSchool,
+  isLikingComment,
   onClose,
   onLikeToggle,
   onUnlock,
@@ -93,9 +95,33 @@ const SchoolModalContent = ({
   onLoadMore,
   onEditOpinion,
   onDeleteOpinion,
+  onLikeComment,
+  onUnlikeComment,
   isOwner,
 }: SchoolModalContentProps) => {
+  const { likedSchools, unlockedSchools } = useUserStore();
+  const likedSchoolIds = useMemo(() => new Set(likedSchools), [likedSchools]);
+  const unlockedSchoolIds = useMemo(() => new Set(unlockedSchools), [unlockedSchools]);
+  const isLiked = likedSchoolIds.has(school._id);
+  const isUnlocked = unlockedSchoolIds.has(school._id);
+  const [likeHover, setLikeHover] = useState(false);
+  const [unlockHover, setUnlockHover] = useState(false);
   const renderDetailsSection = (): JSX.Element => {
+    if (!isUnlocked) {
+      return (
+        <div className="flex flex-1 items-center justify-center text-center p-6">
+          <div className="max-w-md">
+            <div className="text-4xl mb-4">🔒✨</div>
+            <h4 className="text-lg font-semibold text-slate-700 mb-2">Szkoła nie została odblokowana</h4>
+            <p className="text-sm text-slate-600">
+              Aby zobaczyć szczegóły szkoły, takie jak kierunki, wyniki egzaminów i inne informacje, musisz najpierw ją
+              odblokować! Kliknij przycisk "Odblokuj" powyżej.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     if (isLoadingDetails) {
       return (
         <div className="flex flex-1 items-center justify-center text-slate-400">
@@ -152,6 +178,61 @@ const SchoolModalContent = ({
                 <span className="text-sm font-semibold text-slate-700">{value}</span>
               </div>
             ))}
+          </div>
+        </motion.div>
+      );
+    }
+
+    const results = details?.results;
+    if (results && (results.polish !== undefined || results.math !== undefined || results.aliens !== undefined)) {
+      tiles.push(
+        <motion.div
+          key="maturaResults"
+          className="rounded-2xl bg-white p-4 shadow-sm border border-slate-100"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="rounded-full bg-emerald-100 p-2">
+              <GraduationCap className="size-5 text-emerald-600" />
+            </div>
+            <h4 className="text-sm font-semibold text-slate-700">Średnie wyniki matur</h4>
+          </div>
+          <div className="grid grid-cols-1 gap-3">
+            {results.polish !== undefined && (
+              <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-full bg-blue-100 p-2">
+                    <BookOpen className="size-4 text-blue-600" />
+                  </div>
+                  <span className="text-sm font-medium text-slate-700">Język polski</span>
+                </div>
+                <span className="text-lg font-bold text-slate-800">{results.polish}%</span>
+              </div>
+            )}
+            {results.math !== undefined && (
+              <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-full bg-orange-100 p-2">
+                    <Calculator className="size-4 text-orange-600" />
+                  </div>
+                  <span className="text-sm font-medium text-slate-700">Matematyka</span>
+                </div>
+                <span className="text-lg font-bold text-slate-800">{results.math}%</span>
+              </div>
+            )}
+            {results.aliens !== undefined && (
+              <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-slate-50">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-full bg-green-100 p-2">
+                    <Globe className="size-4 text-green-600" />
+                  </div>
+                  <span className="text-sm font-medium text-slate-700">Język obcy</span>
+                </div>
+                <span className="text-lg font-bold text-slate-800">{results.aliens}%</span>
+              </div>
+            )}
           </div>
         </motion.div>
       );
@@ -314,40 +395,72 @@ const SchoolModalContent = ({
     );
   };
 
-  const renderOpinionsSection = (): JSX.Element => (
-    <div className="flex-1 space-y-3 overflow-y-auto p-4 pr-3 text-sm">
-      {opinions.length === 0 ? (
-        <p className="text-slate-400">Brak opinii. Bądź pierwszą osobą, która ją doda!</p>
-      ) : (
-        opinions.map((opinion, index) => (
-          <div key={`${opinion._id}-${index}`} className="rounded-2xl bg-white p-3 shadow">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-slate-700">{opinion.userName}</span>
-              <span className="text-xs text-slate-400">{new Date(opinion.createdAt).toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-1 mt-1">
-              {Array.from({ length: 5 }, (_, i) => (
-                <span key={i} className={`text-sm ${i < opinion.stars ? "text-yellow-400" : "text-slate-300"}`}>
-                  ★
-                </span>
-              ))}
-            </div>
-            <p className="mt-2 text-slate-600">{opinion.content}</p>
-            {isOwner(opinion) && (
-              <div className="mt-3 flex gap-2 text-xs font-semibold text-sky-500">
-                <button onClick={() => onEditOpinion(opinion)} className="hover:text-sky-600">
-                  Edytuj
-                </button>
-                <button onClick={() => onDeleteOpinion(opinion._id)} className="text-rose-500 hover:text-rose-600">
-                  Usuń
-                </button>
-              </div>
-            )}
+  const renderOpinionsSection = (): JSX.Element => {
+    if (!isUnlocked) {
+      return (
+        <div className="flex flex-1 items-center justify-center text-center p-6">
+          <div className="max-w-md">
+            <div className="text-4xl mb-4">🔒💬</div>
+            <h4 className="text-lg font-semibold text-slate-700 mb-2">Opinie niedostępne</h4>
+            <p className="text-sm text-slate-600">
+              Aby zobaczyć opinie innych użytkowników i dodać swoją, musisz najpierw odblokować szkołę! Kliknij przycisk
+              "Odblokuj" powyżej.
+            </p>
           </div>
-        ))
-      )}
-    </div>
-  );
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex-1 space-y-3 overflow-y-auto p-4 pr-3 text-sm">
+        {opinions.length === 0 ? (
+          <p className="text-slate-400">Brak opinii. Bądź pierwszą osobą, która ją doda!</p>
+        ) : (
+          opinions.map((opinion, index) => (
+            <div key={`${opinion._id}-${index}`} className="rounded-2xl bg-white p-3 shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <User className="size-4 text-slate-500" />
+                  <span className="text-sm font-semibold text-slate-700">{opinion.userName}</span>
+                </div>
+                <span className="text-xs text-slate-400">{new Date(opinion.createdAt).toLocaleString()}</span>
+              </div>
+              <div className="flex items-center gap-1 mt-1">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <span key={i} className={`text-sm ${i < opinion.stars ? "text-yellow-400" : "text-slate-300"}`}>
+                    ★
+                  </span>
+                ))}
+              </div>
+              <p className="mt-2 text-slate-600">{opinion.content}</p>
+              <div className="mt-3 flex items-center justify-between">
+                <button
+                  disabled={isLikingComment.get(opinion._id) || false}
+                  onClick={() => (opinion.liked ? onUnlikeComment(opinion._id) : onLikeComment(opinion._id))}
+                  className={`flex items-center gap-1 text-xs font-semibold transition ${
+                    opinion.liked ? "text-rose-500 hover:text-rose-600" : "text-slate-500 hover:text-rose-500"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <Heart className={`size-4 ${opinion.liked ? "fill-current" : ""}`} />
+                  {opinion.likes}
+                </button>
+                {isOwner(opinion) && (
+                  <div className="flex gap-2 text-xs font-semibold text-sky-500">
+                    <button onClick={() => onEditOpinion(opinion)} className="hover:text-sky-600">
+                      Edytuj
+                    </button>
+                    <button onClick={() => onDeleteOpinion(opinion._id)} className="text-rose-500 hover:text-rose-600">
+                      Usuń
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  };
 
   return (
     <motion.div
@@ -381,27 +494,32 @@ const SchoolModalContent = ({
             )}
             <div className="flex gap-3">
               <button
+                disabled={isLikingSchool || !isUnlocked}
                 onClick={onLikeToggle}
+                onMouseEnter={() => setLikeHover(true)}
+                onMouseLeave={() => setLikeHover(false)}
                 className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold shadow transition ${
                   isLiked ? "bg-white/20 text-white" : "bg-white text-sky-600"
-                }`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <Heart className={`size-4 ${isLiked ? "fill-current" : ""}`} />
-                {isLiked ? "Polubiono" : "Polub"}
+                {isLiked ? (likeHover ? "Odlub" : "Polubiono") : "Polub"}
               </button>
               <button
                 disabled={!allowUnlock || isUnlocked}
                 onClick={onUnlock}
+                onMouseEnter={() => setUnlockHover(true)}
+                onMouseLeave={() => setUnlockHover(false)}
                 className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold shadow transition ${
                   isUnlocked
-                    ? "bg-amber-100 text-amber-600"
+                    ? "bg-slate-100 text-slate-500"
                     : allowUnlock
                     ? "bg-amber-400 text-amber-950 hover:bg-amber-300"
                     : "bg-white/40 text-white/70"
                 }`}
               >
                 <Sparkles className="size-4" />
-                {isUnlocked ? "Odblokowano" : "Odblokuj"}
+                {isUnlocked ? "Odblokowano" : unlockHover ? "Kliknij aby odblokować" : "Odblokuj"}
               </button>
             </div>
           </div>
@@ -420,7 +538,7 @@ const SchoolModalContent = ({
             </h3>
             <div className="flex flex-1 flex-col overflow-hidden rounded-2xl bg-slate-50">
               {renderOpinionsSection()}
-              {pagination.total > opinions.length && (
+              {isUnlocked && pagination.total > opinions.length && (
                 <button
                   onClick={onLoadMore}
                   className="m-4 rounded-full bg-white px-4 py-2 text-sm font-semibold text-sky-600 shadow hover:bg-sky-50"
@@ -428,41 +546,43 @@ const SchoolModalContent = ({
                   Załaduj więcej
                 </button>
               )}
-              <div className="border-t border-slate-200 bg-white p-4">
-                <div className="mb-3">
-                  <div className="block text-sm font-semibold text-slate-700 mb-2">Ocena</div>
-                  <div className="flex gap-1">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => onStarsChange(i + 1)}
-                        className={`text-2xl ${
-                          i < starsDraft ? "text-yellow-400" : "text-slate-300"
-                        } hover:text-yellow-400 transition`}
-                      >
-                        ★
-                      </button>
-                    ))}
+              {isUnlocked && (
+                <div className="border-t border-slate-200 bg-white p-4">
+                  <div className="mb-3">
+                    <div className="block text-sm font-semibold text-slate-700 mb-2">Ocena</div>
+                    <div className="flex gap-1">
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => onStarsChange(i + 1)}
+                          className={`text-2xl ${
+                            i < starsDraft ? "text-yellow-400" : "text-slate-300"
+                          } hover:text-yellow-400 transition`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <textarea
+                    className="h-24 w-full resize-none rounded-2xl border border-slate-200 p-3 text-sm focus:border-sky-400 focus:outline-none"
+                    placeholder="Podziel się swoją opinią..."
+                    value={commentDraft}
+                    onChange={(event) => onCommentChange(event.target.value)}
+                  />
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={onSubmitComment}
+                      disabled={isBusy || commentDraft.trim().length === 0}
+                      className="flex items-center gap-2 rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-sky-300"
+                    >
+                      {isBusy ? <Loader2 className="size-4 animate-spin" /> : <MessageCircle className="size-4" />}
+                      {editingOpinionId ? "Zapisz zmiany" : "Dodaj opinię"}
+                    </button>
                   </div>
                 </div>
-                <textarea
-                  className="h-24 w-full resize-none rounded-2xl border border-slate-200 p-3 text-sm focus:border-sky-400 focus:outline-none"
-                  placeholder="Podziel się swoją opinią..."
-                  value={commentDraft}
-                  onChange={(event) => onCommentChange(event.target.value)}
-                />
-                <div className="mt-3 flex justify-end">
-                  <button
-                    onClick={onSubmitComment}
-                    disabled={isBusy || commentDraft.trim().length === 0}
-                    className="flex items-center gap-2 rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-sky-300"
-                  >
-                    {isBusy ? <Loader2 className="size-4 animate-spin" /> : <MessageCircle className="size-4" />}
-                    {editingOpinionId || hasExistingOpinion ? "Zapisz zmiany" : "Dodaj opinię"}
-                  </button>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -474,25 +594,25 @@ const SchoolModalContent = ({
   );
 };
 
-const SchoolModal = ({
-  school,
-  onClose,
-  onUnlock,
-  onLike,
-  onUnlike,
-  isLiked,
-  isUnlocked,
-  currentUserId,
-}: SchoolModalProps) => {
+const SchoolModal = ({ school, onClose, onUnlock, onLike, onUnlike }: SchoolModalProps) => {
+  const { unlockedSchools, likedSchools } = useUserStore();
+  const unlockedSchoolIds = useMemo(() => new Set(unlockedSchools), [unlockedSchools]);
+  const likedSchoolIds = useMemo(() => new Set(likedSchools), [likedSchools]);
+  const isLiked = school ? likedSchoolIds.has(school._id) : false;
+  const isUnlocked = school ? unlockedSchoolIds.has(school._id) : false;
+  const currentUserId = useUserStore((state) => state.user?._id);
+
   const [details, setDetails] = useState<SchoolDetails | null>(null);
   const [opinions, setOpinions] = useState<Opinion[]>([]);
   const [pagination, setPagination] = useState<PaginationState>({ page: 1, total: 0 });
   const [commentDraft, setCommentDraft] = useState("");
   const [starsDraft, setStarsDraft] = useState(1);
   const [editingOpinionId, setEditingOpinionId] = useState<string | null>(null);
-  const [isBusy, setIsBusy] = useState(false);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [isLikingSchool, setIsLikingSchool] = useState(false);
+  const [isLikingComment, setIsLikingComment] = useState<Map<string, boolean>>(new Map());
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
 
   useEffect(() => {
     if (!school) {
@@ -508,10 +628,11 @@ const SchoolModal = ({
     const load = async () => {
       setIsLoadingDetails(true);
       try {
-        const [schoolDetails, opinionsResponse] = await Promise.all([
-          getSchoolDetails(school._id),
-          getSchoolOpinions(school._id, 1),
-        ]);
+        const schoolDetailsPromise = isUnlocked ? getSchoolDetails(school._id) : Promise.resolve(null);
+        const opinionsPromise = isUnlocked
+          ? getSchoolOpinions(school._id, 1)
+          : Promise.resolve({ opinions: [], page: 1, total: 0 });
+        const [schoolDetails, opinionsResponse] = await Promise.all([schoolDetailsPromise, opinionsPromise]);
         setDetails(schoolDetails);
         setOpinions(opinionsResponse.opinions);
         setPagination({ page: opinionsResponse.page, total: opinionsResponse.total });
@@ -524,7 +645,7 @@ const SchoolModal = ({
     };
 
     load();
-  }, [school]);
+  }, [school, isUnlocked]);
 
   const allowUnlock = useMemo(
     () => Boolean(school?.distanceMeters && school.distanceMeters <= MAP_UNLOCK_RADIUS_METERS),
@@ -535,14 +656,11 @@ const SchoolModal = ({
     if (!school || !commentDraft.trim() || starsDraft < 1 || starsDraft > 5) return;
     setIsBusy(true);
     try {
-      const existingOpinion = opinions.find((op) => op.userId === currentUserId);
-      const isUpdating = editingOpinionId !== null || existingOpinion !== undefined;
-      if (isUpdating) {
-        const opinionId = editingOpinionId || existingOpinion!._id;
-        await updateSchoolOpinion(school._id, opinionId, starsDraft, commentDraft.trim(), currentUserId!);
+      if (editingOpinionId) {
+        await updateSchoolOpinion(school._id, editingOpinionId, starsDraft, commentDraft.trim(), currentUserId!);
         setOpinions((prev) =>
           prev.map((item) =>
-            item._id === opinionId ? { ...item, content: commentDraft.trim(), stars: starsDraft } : item
+            item._id === editingOpinionId ? { ...item, content: commentDraft.trim(), stars: starsDraft } : item
           )
         );
       } else {
@@ -557,21 +675,6 @@ const SchoolModal = ({
     } catch (err) {
       console.error("Nie udało się zapisać opinii", err);
       setError("Nie udało się zapisać opinii. Spróbuj ponownie.");
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const handleDeleteOpinion = async (opinionId: string) => {
-    if (!school) return;
-    setIsBusy(true);
-    try {
-      await deleteSchoolOpinion(school._id, opinionId);
-      setOpinions((prev: Opinion[]) => prev.filter((item: Opinion) => item._id !== opinionId));
-      setPagination((prev: PaginationState) => ({ ...prev, total: Math.max(prev.total - 1, 0) }));
-    } catch (err) {
-      console.error("Nie udało się usunąć opinii", err);
-      setError("Nie udało się usunąć opinii. Spróbuj ponownie.");
     } finally {
       setIsBusy(false);
     }
@@ -602,7 +705,8 @@ const SchoolModal = ({
   };
 
   const handleLikeToggle = async () => {
-    if (!school) return;
+    if (!school || isLikingSchool) return;
+    setIsLikingSchool(true);
     try {
       if (isLiked) {
         await onUnlike(school._id);
@@ -614,6 +718,8 @@ const SchoolModal = ({
       const message =
         err instanceof Error ? err.message : "Nie udało się zmienić statusu polubienia. Spróbuj ponownie.";
       setError(message);
+    } finally {
+      setIsLikingSchool(false);
     }
   };
 
@@ -623,9 +729,65 @@ const SchoolModal = ({
     setStarsDraft(opinion.stars);
   };
 
-  const isOwner = (opinion: Opinion) => opinion.userId === currentUserId;
+  const handleDeleteOpinion = async (opinionId: string) => {
+    if (!school) return;
+    setIsBusy(true);
+    try {
+      await deleteSchoolOpinion(school._id, opinionId);
+      setOpinions((prev: Opinion[]) => prev.filter((item: Opinion) => item._id !== opinionId));
+      setPagination((prev: PaginationState) => ({ ...prev, total: Math.max(prev.total - 1, 0) }));
+    } catch (err) {
+      console.error("Nie udało się usunąć opinii", err);
+      setError("Nie udało się usunąć opinii. Spróbuj ponownie.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
 
-  const hasExistingOpinion = opinions.some(isOwner);
+  const handleLikeComment = async (commentId: string) => {
+    if (!school || isLikingComment.get(commentId)) return;
+    setIsLikingComment((prev) => new Map(prev).set(commentId, true));
+    try {
+      await likeComment(school._id, commentId);
+      setOpinions((prev) =>
+        prev.map((op) => (op._id === commentId ? { ...op, liked: true, likes: op.likes + 1 } : op))
+      );
+    } catch (err) {
+      console.error("Nie udało się polubić komentarza", err);
+      setError("Nie udało się polubić komentarza. Spróbuj ponownie.");
+    } finally {
+      setIsLikingComment((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(commentId);
+        return newMap;
+      });
+    }
+  };
+
+  const handleUnlikeComment = async (commentId: string) => {
+    if (!school || isLikingComment.get(commentId)) return;
+    setIsLikingComment((prev) => new Map(prev).set(commentId, true));
+    try {
+      await unlikeComment(school._id, commentId);
+      setOpinions((prev) =>
+        prev.map((op) => (op._id === commentId ? { ...op, liked: false, likes: op.likes - 1 } : op))
+      );
+    } catch (err) {
+      console.error("Nie udało się odlubić komentarza", err);
+      setError("Nie udało się odlubić komentarza. Spróbuj ponownie.");
+    } finally {
+      setIsLikingComment((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(commentId);
+        return newMap;
+      });
+    }
+  };
+
+  const isOwner = useCallback((opinion: Opinion) => {
+    const userId = useUserStore.getState().user?._id;
+    return opinion.userId === userId;
+  }, []);
 
   return (
     <AnimatePresence>
@@ -639,12 +801,11 @@ const SchoolModal = ({
           commentDraft={commentDraft}
           starsDraft={starsDraft}
           isBusy={isBusy}
-          isLiked={isLiked}
-          isUnlocked={isUnlocked}
           allowUnlock={allowUnlock}
           error={error}
           editingOpinionId={editingOpinionId}
-          hasExistingOpinion={hasExistingOpinion}
+          isLikingSchool={isLikingSchool}
+          isLikingComment={isLikingComment}
           onClose={onClose}
           onLikeToggle={handleLikeToggle}
           onUnlock={handleUnlock}
@@ -654,6 +815,8 @@ const SchoolModal = ({
           onLoadMore={handleLoadMore}
           onEditOpinion={handleEditOpinion}
           onDeleteOpinion={handleDeleteOpinion}
+          onLikeComment={handleLikeComment}
+          onUnlikeComment={handleUnlikeComment}
           isOwner={isOwner}
         />
       ) : null}

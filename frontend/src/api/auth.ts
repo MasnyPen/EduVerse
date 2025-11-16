@@ -10,7 +10,7 @@ interface RegisterResponseDto {
 }
 
 const fetchProfile = async (): Promise<UserProfile> => {
-  const { data } = await api.get<UserProfile>("/auth/profile");
+  const { data } = await api.get<UserProfile>("/users/profile");
   return data;
 };
 

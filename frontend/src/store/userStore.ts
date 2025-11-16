@@ -4,6 +4,9 @@ import { persist, type PersistOptions } from "zustand/middleware";
 import type { StoreApi } from "zustand";
 import { fetchCurrentUser, login as loginRequest, register as registerRequest } from "../api/auth";
 import { authTokenStorage } from "../api/api";
+import { unlockSchool } from "../api/users";
+import { likeSchool, unlikeSchool } from "../api/schools";
+import { getCurrentPosition } from "../utils/geolocation";
 import type { AuthPayload, AuthSession, RegisterPayload, UserProfile } from "../types";
 
 export interface UserStoreState {
@@ -11,16 +14,12 @@ export interface UserStoreState {
   token: string | null;
   isAuthLoading: boolean;
   authError?: string;
-  likedSchools: any[];
-  unlockedSchools: any[];
-  visitedSchools: any[];
+  likedSchools: string[];
+  unlockedSchools: string[];
   setAuthData: (payload: AuthSession) => void;
   login: (credentials: AuthPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   hydrateUser: () => Promise<void>;
-  refreshLiked: () => Promise<void>;
-  refreshUnlocked: () => Promise<void>;
-  refreshVisited: () => Promise<void>;
   like: (schoolId: string) => Promise<void>;
   unlike: (schoolId: string) => Promise<void>;
   unlock: (schoolId: string) => Promise<void>;
@@ -33,7 +32,7 @@ const defaultSlices = {
   authError: undefined as string | undefined,
 };
 
-type PersistedState = Pick<UserStoreState, "token" | "user">;
+type PersistedState = Pick<UserStoreState, "token">;
 
 type StoreSet = StoreApi<UserStoreState>["setState"];
 type StoreGet = StoreApi<UserStoreState>["getState"];
@@ -59,7 +58,6 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
   token: authTokenStorage.get(),
   likedSchools: [],
   unlockedSchools: [],
-  visitedSchools: [],
   ...defaultSlices,
   setAuthData: (payload: AuthSession) => {
     authTokenStorage.set(payload.token);
@@ -94,11 +92,15 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
   hydrateUser: async () => {
     const currentToken = get().token ?? authTokenStorage.get();
     if (!currentToken) return;
-    if (get().user) return;
     set({ isAuthLoading: true });
     try {
       const profile = await fetchCurrentUser();
-      set({ user: profile });
+      const mappedProfile = { ...profile, _id: (profile as unknown as { userId: string }).userId };
+      set({
+        user: mappedProfile,
+        likedSchools: profile.likes || [],
+        unlockedSchools: profile.schoolsHistory || [],
+      });
     } catch (error) {
       console.error("Nie udało się pobrać profilu użytkownika", error);
       set({ token: null, user: null });
@@ -107,29 +109,41 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
       set({ isAuthLoading: false });
     }
   },
-  refreshLiked: async () => {
-    console.warn("NOT IMPLEMENTED");
-    throw new Error("NOT IMPLEMENTED");
+  like: async (schoolId: string) => {
+    try {
+      await likeSchool(schoolId);
+      set((state) => ({
+        likedSchools: state.likedSchools.includes(schoolId) ? state.likedSchools : [...state.likedSchools, schoolId],
+      }));
+    } catch (error) {
+      console.error("Failed to like school", error);
+      throw error;
+    }
   },
-  refreshUnlocked: async () => {
-    console.warn("NOT IMPLEMENTED");
-    throw new Error("NOT IMPLEMENTED");
+  unlike: async (schoolId: string) => {
+    try {
+      await unlikeSchool(schoolId);
+      set((state) => ({
+        likedSchools: state.likedSchools.filter((id) => id !== schoolId),
+      }));
+    } catch (error) {
+      console.error("Failed to unlike school", error);
+      throw error;
+    }
   },
-  refreshVisited: async () => {
-    console.warn("NOT IMPLEMENTED");
-    throw new Error("NOT IMPLEMENTED");
-  },
-  like: async () => {
-    console.warn("NOT IMPLEMENTED");
-    throw new Error("NOT IMPLEMENTED");
-  },
-  unlike: async () => {
-    console.warn("NOT IMPLEMENTED");
-    throw new Error("NOT IMPLEMENTED");
-  },
-  unlock: async () => {
-    console.warn("NOT IMPLEMENTED");
-    throw new Error("NOT IMPLEMENTED");
+  unlock: async (schoolId: string) => {
+    try {
+      const position = await getCurrentPosition();
+      await unlockSchool(schoolId, position.latitude, position.longitude);
+      set((state) => ({
+        unlockedSchools: state.unlockedSchools.includes(schoolId)
+          ? state.unlockedSchools
+          : [...state.unlockedSchools, schoolId],
+      }));
+    } catch (error) {
+      console.error("Failed to unlock school", error);
+      throw error;
+    }
   },
   logout: () => {
     authTokenStorage.clear();
@@ -138,7 +152,6 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
       token: null,
       likedSchools: [],
       unlockedSchools: [],
-      visitedSchools: [],
       ...defaultSlices,
     });
   },
@@ -149,7 +162,6 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
       token: null,
       likedSchools: [],
       unlockedSchools: [],
-      visitedSchools: [],
       ...defaultSlices,
     });
   },
@@ -159,7 +171,6 @@ const persistOptions: PersistOptions<UserStoreState, PersistedState> = {
   name: "eduverse-user-store",
   partialize: (state: UserStoreState) => ({
     token: state.token,
-    user: state.user,
   }),
 };
 
