@@ -123,6 +123,8 @@ const Developer = () => {
   };
 
   const toggleDeveloperMode = () => {
+    localStorage.removeItem("developerLocation");
+    localStorage.removeItem("developerDate");
     localStorage.setItem("developer", "false");
     globalThis.location.reload();
   };
