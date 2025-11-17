@@ -1,8 +1,11 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Param, UseGuards, UseInterceptors } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/jwt-guard.guard';
 import { CalendarService } from './calendar.service';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 
 @Controller('calendar')
+@UseInterceptors(CacheInterceptor)
+@CacheTTL(108000)
 export class CalendarController {
 
     constructor(private calendarService: CalendarService) {}

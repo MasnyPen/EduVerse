@@ -1,13 +1,16 @@
-import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query, Request, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query, Request, UseGuards, UseInterceptors } from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { JwtAuthGuard } from 'src/auth/jwt-guard.guard';
 import { SchoolUnlockedGuard } from 'src/guards/school-unlocked.guard';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 
 @Controller('schools/:schoolId/comments')
+
 export class CommentsController {
 
     constructor(private commentsService: CommentsService) {}
 
+    @UseInterceptors(CacheInterceptor)
     @Get()
     @UseGuards(JwtAuthGuard, SchoolUnlockedGuard)
     @HttpCode(HttpStatus.OK)

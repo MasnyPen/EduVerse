@@ -1,19 +1,23 @@
-import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query, Request, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query, Request, UseGuards, UseInterceptors } from '@nestjs/common';
 import { SchoolsService } from './schools.service';
 import { JwtAuthGuard } from 'src/auth/jwt-guard.guard';
 import { SchoolUnlockedGuard } from 'src/guards/school-unlocked.guard';
+import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 
 @Controller('schools')
 export class SchoolsController {
 
     constructor(private schoolsService: SchoolsService) {}
 
+    @UseInterceptors(CacheInterceptor)
     @Post('search')
     @HttpCode(HttpStatus.OK)
     async searchSchoolsByRadius(@Request() req, @Query('r') radius = 3) {
         return this.schoolsService.searchSchoolsByRadius(req, +radius)
     }
 
+    @UseInterceptors(CacheInterceptor)
+    @CacheTTL(108000)
     @UseGuards(JwtAuthGuard, SchoolUnlockedGuard)
     @Get(':schoolId')
     @HttpCode(HttpStatus.OK)
