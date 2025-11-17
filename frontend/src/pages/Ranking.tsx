@@ -7,6 +7,7 @@ import { useUserStore, type UserStoreState } from "../store/userStore";
 import type { UserProfile, UserRankingEntry } from "../types";
 
 const PAGE_SIZE = 50;
+const MIN_REFRESH_SPINNER_MS = 900;
 
 type RankingRow = UserRankingEntry & { position: number };
 
@@ -138,6 +139,8 @@ const Ranking = () => {
     setIsRefreshing(isSilent);
     setIsLoading(!isSilent);
 
+    const startedAt = performance.now();
+
     try {
       const data = await fetchUserRanking(0, PAGE_SIZE);
       setRanking(data);
@@ -145,8 +148,17 @@ const Ranking = () => {
       console.error("Nie udało się pobrać rankingu", err);
       setError("Nie udało się pobrać rankingu. Spróbuj ponownie za chwilę.");
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      const settleStates = () => {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      };
+      const elapsed = performance.now() - startedAt;
+      const remaining = Math.max(0, MIN_REFRESH_SPINNER_MS - elapsed);
+      if (remaining > 0) {
+        globalThis.setTimeout(settleStates, remaining);
+      } else {
+        settleStates();
+      }
     }
   }, []);
 
@@ -174,6 +186,8 @@ const Ranking = () => {
     void loadRanking({ silent: ranking.length > 0 });
   }, [loadRanking, ranking.length]);
 
+  const isBusy = isLoading || isRefreshing;
+
   return (
     <AppShell>
       <div className="flex flex-1 flex-col gap-6 p-4 md:p-8">
@@ -192,11 +206,28 @@ const Ranking = () => {
             <button
               type="button"
               onClick={handleRefresh}
-              disabled={isLoading || isRefreshing}
-              className="inline-flex items-center gap-2 self-start rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isBusy}
+              className="inline-flex items-center gap-2 self-start rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
             >
-              <RefreshCw className={`size-4 ${isRefreshing ? "animate-spin" : ""}`} />
-              Odśwież ranking
+              <span className="relative inline-flex size-6 items-center justify-center">
+                {isBusy ? (
+                  <>
+                    <span
+                      className="absolute inset-0 rounded-full border-2 border-white/30 border-t-white"
+                      aria-hidden="true"
+                      style={{ animation: "spin 1.4s linear infinite" }}
+                    />
+                    <RefreshCw
+                      className="size-4"
+                      aria-hidden="true"
+                      style={{ animation: "spin 1.4s linear infinite" }}
+                    />
+                  </>
+                ) : (
+                  <RefreshCw className="size-4" aria-hidden="true" />
+                )}
+              </span>
+              <span>Odśwież ranking</span>
             </button>
           </div>
 
