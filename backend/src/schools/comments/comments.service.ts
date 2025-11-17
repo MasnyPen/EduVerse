@@ -40,7 +40,7 @@ export class CommentsService {
         })    
 
         await this.userModel.updateOne({ _id: userId}, {
-            $inc: { ranking: 10 }
+            $inc: { ranking: 5 }
         })
 
         return true
@@ -67,10 +67,14 @@ export class CommentsService {
 
 
     async deleteComment(id: string, userId: string): Promise<void> {
-        await this.commentModel.findByIdAndDelete(id)
-        await this.userModel.updateOne({ _id: userId}, {
-            $inc: { ranking: -10 }
-        })
+        const comment = await this.commentModel.findById(id).exec()
+        
+        if (comment?.$isDeleted){
+            comment.deleteOne().exec()
+            await this.userModel.updateOne({ _id: userId}, {
+                $inc: { ranking: -5 }
+            })
+        }
     }
 
     async addLikeToComment(comId: string, userId: string) {

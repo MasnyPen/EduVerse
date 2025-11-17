@@ -96,8 +96,20 @@ export class UsersService {
   }
 
   async getRanking(page: number, size: number) {
-    return await this.userModel.find({}, { _id: 1, username: 1, ranking: 1}).sort({ ranking: -1 }).limit(size).skip(page).lean<User[] | void[]>().exec()
-  }
+    const users = await this.userModel
+        .find({}, { _id: 1, username: 1, ranking: 1 })
+        .sort({ ranking: -1 })
+        .limit(size)
+        .skip(page)
+        .lean<User[]>()
+        .exec();
+
+    return users.map((u, index) => ({
+        ...u,
+        position: page + index + 1
+    }));
+}
+
 
   async getUnlockedSchools(userId: string): Promise<string[]> {
     const data = await this.userModel.findById(userId, {schoolsHistory: 1}).exec()
