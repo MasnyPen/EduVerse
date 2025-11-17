@@ -56,6 +56,7 @@ export interface PaginatedOpinions {
   page: number;
   pageSize: number;
   total: number;
+  error?: string;
 }
 
 export interface AuthPayload {
@@ -77,6 +78,14 @@ export interface UserProfile {
   avatarUrl?: string;
   likes?: string[];
   schoolsHistory?: string[];
+  ranking?: number;
+  rankingPosition?: number;
+}
+
+export interface UserRankingEntry {
+  _id: string;
+  username: string;
+  ranking: number;
 }
 
 export interface CalendarDate {

@@ -29,6 +29,30 @@ const Dashboard = () => {
   const [geoError, setGeoError] = useState<string | null>(null);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel | null>(null);
+  const [developerDate, setDeveloperDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === "developerDate") {
+        setDeveloperDate(event.newValue);
+      }
+    };
+
+    const handleCustomChange = (event: CustomEvent<string>) => {
+      setDeveloperDate(event.detail);
+    };
+
+    const currentDate = localStorage.getItem("developerDate");
+    setDeveloperDate(currentDate);
+
+    globalThis.addEventListener("storage", handleStorageChange);
+    globalThis.addEventListener("developerDateChanged", handleCustomChange as EventListener);
+
+    return () => {
+      globalThis.removeEventListener("storage", handleStorageChange);
+      globalThis.removeEventListener("developerDateChanged", handleCustomChange as EventListener);
+    };
+  }, []);
   const { title: todayTitle, isLoading: isTodayLoading, error: todayError, refetch: refetchToday } = useCalendarToday();
   const {
     days: calendarDays,
@@ -225,20 +249,6 @@ const Dashboard = () => {
     };
   }, [geoError]);
 
-  useEffect(() => {
-    if (!schoolsError) {
-      return;
-    }
-
-    const timeoutId = globalThis.setTimeout(() => {
-      setSchoolsError(null);
-    }, 15000);
-
-    return () => {
-      globalThis.clearTimeout(timeoutId);
-    };
-  }, [schoolsError]);
-
   const selectedSchool = useMemo(
     () => (selectedSchoolId ? schools.find((school) => school._id === selectedSchoolId) ?? null : null),
     [schools, selectedSchoolId]
@@ -303,7 +313,7 @@ const Dashboard = () => {
   const displayName = (user?.displayName ?? user?.username ?? "Gościu").trim() || "Gościu";
   const greetingMessage = user ? `Witaj ${displayName}!` : `Witaj, ${displayName}!`;
   const isGuest = !user;
-  const todayDate = new Date();
+  const todayDate = developerDate ? new Date(developerDate) : new Date();
   const dayName = new Intl.DateTimeFormat("pl-PL", { weekday: "short" }).format(todayDate).replace(/\.$/, "");
   const dayNumber = new Intl.DateTimeFormat("pl-PL", { day: "2-digit" }).format(todayDate);
   const calendarWidgetTitle = todayTitle ?? "Brak zaplanowanych wydarzeń na dziś.";
@@ -691,7 +701,6 @@ const Dashboard = () => {
         onUnlock={handleManualUnlock}
         onLike={handleLike}
         onUnlike={handleUnlike}
-        currentUserId={user?._id}
       />
     </AppShell>
   );

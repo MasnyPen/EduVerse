@@ -14,6 +14,15 @@ export const watchUserPosition = (
     onError?: ErrorListener,
     options: PositionOptions = defaultOptions
 ): (() => void) => {
+    const isDeveloperMode = localStorage.getItem('developer') === 'true';
+    const savedLocation = localStorage.getItem('developerLocation');
+
+    if (isDeveloperMode && savedLocation) {
+        const coords = JSON.parse(savedLocation);
+        listener(coords);
+        return () => {}; 
+    }
+
     if (!("geolocation" in navigator)) {
         onError?.(new Error("Geolokalizacja nie jest wspierana w tej przeglądarce."));
         return () => {};
@@ -35,6 +44,14 @@ export const watchUserPosition = (
 
 export const getCurrentPosition = (options: PositionOptions = defaultOptions): Promise<Coordinates> =>
     new Promise((resolve, reject) => {
+        const isDeveloperMode = localStorage.getItem('developer') === 'true';
+        const savedLocation = localStorage.getItem('developerLocation');
+
+        if (isDeveloperMode && savedLocation) {
+            resolve(JSON.parse(savedLocation));
+            return;
+        }
+
         if (!("geolocation" in navigator)) {
             reject(new Error("Geolokalizacja nie jest wspierana w tej przeglądarce."));
             return;

@@ -110,10 +110,10 @@ export const getAcademicYear = (inputDate: Date = new Date()): number => {
 
 export const buildCalendarDaySchedules = (
   calendar: Calendar,
-  options: { locale?: string } = {}
+  options: { locale?: string; customNow?: Date } = {}
 ): CalendarDaySchedule[] => {
   const locale = options.locale ?? DEFAULT_LOCALE;
-  const now = new Date();
+  const now = options.customNow ?? new Date();
   const todayStart = startOfDayTimestamp(now);
   const todayIso = normalizeIsoDate(`${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`);
   const formatter = new Intl.DateTimeFormat(locale, {

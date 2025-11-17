@@ -1,3 +1,4 @@
+import { isAxiosError } from "axios";
 import api from "./api";
 import { fetchCurrentUser } from "./auth";
 import type { Opinion, PaginatedOpinions, SchoolDetails, SchoolSummary } from "../types";
@@ -96,6 +97,34 @@ export const getSchoolOpinions = async (schoolId: string, page = 1): Promise<Pag
     likes: number;
   };
 
+  const resolveErrorMessage = (status?: number, data?: unknown): string | undefined => {
+    if (!status) return "Nie udało się pobrać opinii.";
+    if (typeof data === "string" && data.trim().length > 0) {
+      return data;
+    }
+    if (data && typeof data === "object" && "message" in data) {
+      const message = (data as { message?: string | string[] }).message;
+      if (Array.isArray(message) && message.length > 0) {
+        return message[0];
+      }
+      if (typeof message === "string" && message.trim().length > 0) {
+        return message;
+      }
+    }
+    switch (status) {
+      case 400:
+        return "Odblokuj szkołę, aby zobaczyć opinie.";
+      case 401:
+        return "Zaloguj się, aby zobaczyć opinie.";
+      case 403:
+        return "Nie masz dostępu do opinii dla tej szkoły.";
+      case 404:
+        return undefined;
+      default:
+        return "Ups! Nie udało się pobrać opinii. Spróbuj ponownie.";
+    }
+  };
+
   try {
     const { data } = await api.get<BackendOpinion[]>(`/schools/${schoolId}/comments`, {
       params: { page },
@@ -125,13 +154,16 @@ export const getSchoolOpinions = async (schoolId: string, page = 1): Promise<Pag
       pageSize,
     } satisfies PaginatedOpinions;
   } catch (error) {
-    if ((error as { response?: { status?: number } }).response?.status === 404) {
+    if (isAxiosError(error)) {
+      const status = error.response?.status;
+      const message = resolveErrorMessage(status, error.response?.data);
       return {
         opinions: [],
         total: 0,
         page: 1,
         pageSize: 0,
-      };
+        error: message,
+      } satisfies PaginatedOpinions;
     }
     throw error;
   }

@@ -1,4 +1,5 @@
 import api from "./api";
+import type { UserRankingEntry } from "../types";
 
 interface UserDetails {
   userId: string;
@@ -23,4 +24,14 @@ export const unlockSchool = async (schoolId: string, latitude: number, longitude
     latitude,
     longitude,
   });
+};
+
+export const fetchUserRanking = async (page = 0, size = 50): Promise<UserRankingEntry[]> => {
+  const { data } = await api.get<UserRankingEntry[]>("/users/ranking", {
+    params: {
+      page,
+      size,
+    },
+  });
+  return data ?? [];
 };

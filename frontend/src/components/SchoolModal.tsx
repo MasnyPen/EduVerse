@@ -37,7 +37,6 @@ interface SchoolModalProps {
   onUnlock: (schoolId: string) => Promise<void>;
   onLike: (schoolId: string) => Promise<void>;
   onUnlike: (schoolId: string) => Promise<void>;
-  currentUserId?: string;
 }
 
 interface PaginationState {
@@ -386,7 +385,7 @@ const SchoolModalContent = ({
     }
 
     return (
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto pr-2 text-sm text-slate-600">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto pr-1 text-sm text-slate-600 sm:pr-2">
         {tiles.length > 0 ? (
           <div className="grid gap-4">{tiles}</div>
         ) : (
@@ -413,7 +412,7 @@ const SchoolModalContent = ({
     }
 
     return (
-      <div className="flex-1 space-y-3 overflow-y-auto p-4 pr-3 text-sm">
+      <div className="flex-1 space-y-3 overflow-y-auto p-3 pr-2 text-sm sm:p-4 sm:pr-3">
         {opinions.length === 0 ? (
           <p className="text-slate-400">Brak opinii. Bądź pierwszą osobą, która ją doda!</p>
         ) : (
@@ -466,34 +465,35 @@ const SchoolModalContent = ({
   return (
     <motion.div
       key={school._id}
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur"
+      style={{ zIndex: 1000 }}
+      className="fixed inset-x-0 bottom-0 top-16 flex items-stretch justify-center bg-black/30 backdrop-blur sm:inset-0 sm:items-center"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
       <motion.div
-        className="relative flex h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+        className="relative mx-auto flex h-full max-h-screen w-full flex-col overflow-y-auto rounded-none bg-white shadow-2xl sm:h-[85vh] sm:max-w-4xl sm:overflow-hidden sm:rounded-3xl"
         initial={{ scale: 0.96, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.96, opacity: 0 }}
       >
         <button
-          className="absolute right-4 top-4 z-10 rounded-full bg-white/90 p-2 text-slate-500 shadow hover:text-slate-700"
+          className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-2 text-slate-500 shadow hover:text-slate-700 sm:right-4 sm:top-4"
           onClick={onClose}
         >
           <X className="size-5" />
         </button>
-        <div className="relative h-48 w-full bg-linear-to-br from-sky-500 via-sky-400 to-sky-600">
+        <div className="relative h-44 w-full bg-linear-to-br from-sky-500 via-sky-400 to-sky-600 pb-6 pt-12 sm:h-48 sm:pb-4 sm:pt-8">
           <div className="absolute inset-0 bg-white/10" />
-          <div className="absolute bottom-4 left-6 flex flex-col gap-2 text-white">
-            <h2 className="text-2xl font-bold">{school.name}</h2>
-            {school.distanceMeters && (
-              <span className="flex items-center gap-2 text-sm font-semibold">
+          <div className="absolute bottom-4 left-5 right-5 flex flex-col gap-2 text-white sm:left-6 sm:right-auto">
+            <h2 className="text-xl font-bold leading-tight sm:text-2xl">{school.name}</h2>
+            {typeof school.distanceMeters === "number" && (
+              <span className="flex items-center gap-2 text-xs font-semibold sm:text-sm">
                 <MapPin className="size-4" />
                 {Math.round(school.distanceMeters)} m
               </span>
             )}
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               <button
                 disabled={isLikingSchool || !isUnlocked}
                 onClick={onLikeToggle}
@@ -526,7 +526,7 @@ const SchoolModalContent = ({
           </div>
         </div>
 
-        <div className="grid flex-1 grid-cols-1 gap-6 overflow-hidden p-6 md:grid-cols-[1.4fr_1fr]">
+        <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden p-4 pb-6 sm:gap-6 sm:p-6 md:grid-cols-[1.4fr_1fr]">
           <div className="flex h-full flex-col gap-4 overflow-hidden">
             <h3 className="text-lg font-semibold text-slate-700">Szczegóły szkoły</h3>
             {renderDetailsSection()}
@@ -548,7 +548,7 @@ const SchoolModalContent = ({
                 </button>
               )}
               {isUnlocked && (
-                <div className="border-t border-slate-200 bg-white p-4">
+                <div className="border-t border-slate-200 bg-white p-3 sm:p-4">
                   <div className="mb-3">
                     <div className="block text-sm font-semibold text-slate-700 mb-2">Ocena</div>
                     <div className="flex gap-1">
@@ -627,16 +627,20 @@ const SchoolModal = ({ school, onClose, onUnlock, onLike, onUnlike }: SchoolModa
     }
 
     const load = async () => {
+      setError(null);
       setIsLoadingDetails(true);
       try {
         const schoolDetailsPromise = isUnlocked ? getSchoolDetails(school._id) : Promise.resolve(null);
         const opinionsPromise = isUnlocked
           ? getSchoolOpinions(school._id, 1)
-          : Promise.resolve({ opinions: [], page: 1, total: 0 });
+          : Promise.resolve({ opinions: [], page: 1, pageSize: 0, total: 0 });
         const [schoolDetails, opinionsResponse] = await Promise.all([schoolDetailsPromise, opinionsPromise]);
         setDetails(schoolDetails);
         setOpinions(opinionsResponse.opinions);
         setPagination({ page: opinionsResponse.page, total: opinionsResponse.total });
+        if ("error" in opinionsResponse && opinionsResponse.error) {
+          setError(opinionsResponse.error);
+        }
       } catch (err) {
         console.error("Nie udało się pobrać danych szkoły", err);
         setError("Ups! Nie udało się wczytać informacji o tej szkole.");
@@ -648,25 +652,41 @@ const SchoolModal = ({ school, onClose, onUnlock, onLike, onUnlike }: SchoolModa
     load();
   }, [school, isUnlocked]);
 
-  const allowUnlock = useMemo(
-    () => Boolean(school?.distanceMeters && school.distanceMeters <= MAP_UNLOCK_RADIUS_METERS),
-    [school]
-  );
+  const allowUnlock = useMemo(() => {
+    if (!school || isUnlocked) {
+      return false;
+    }
+    if (typeof school.distanceMeters === "number") {
+      return school.distanceMeters <= MAP_UNLOCK_RADIUS_METERS;
+    }
+    return true;
+  }, [school, isUnlocked]);
 
   const handleOpinionSubmit = async () => {
     if (!school || !commentDraft.trim() || starsDraft < 1 || starsDraft > 5) return;
     setIsBusy(true);
     try {
+      setError(null);
       if (editingOpinionId) {
-        await updateSchoolOpinion(school._id, editingOpinionId, starsDraft, commentDraft.trim(), currentUserId!);
+        if (!currentUserId) {
+          setError("Musisz być zalogowany, aby edytować opinię.");
+          return;
+        }
+        await updateSchoolOpinion(school._id, editingOpinionId, starsDraft, commentDraft.trim(), currentUserId);
         setOpinions((prev) =>
           prev.map((item) =>
             item._id === editingOpinionId ? { ...item, content: commentDraft.trim(), stars: starsDraft } : item
           )
         );
+        setError(null);
       } else {
         await addSchoolOpinion(school._id, starsDraft, commentDraft.trim());
         const response = await getSchoolOpinions(school._id, 1);
+        if (response.error) {
+          setError(response.error);
+        } else {
+          setError(null);
+        }
         setOpinions(response.opinions);
         setPagination({ page: response.page, total: response.total });
       }
@@ -686,6 +706,11 @@ const SchoolModal = ({ school, onClose, onUnlock, onLike, onUnlike }: SchoolModa
     const nextPage = pagination.page + 1;
     try {
       const response = await getSchoolOpinions(school._id, nextPage);
+      if (response.error) {
+        setError(response.error);
+        return;
+      }
+      setError(null);
       setOpinions((prev: Opinion[]) => [...prev, ...response.opinions]);
       setPagination({ page: response.page, total: response.total });
     } catch (err) {

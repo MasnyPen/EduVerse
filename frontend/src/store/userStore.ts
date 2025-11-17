@@ -61,7 +61,13 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
   ...defaultSlices,
   setAuthData: (payload: AuthSession) => {
     authTokenStorage.set(payload.token);
-    set({ token: payload.token, user: payload.user, authError: undefined });
+    set({
+      token: payload.token,
+      user: payload.user,
+      likedSchools: payload.user.likes || [],
+      unlockedSchools: payload.user.schoolsHistory || [],
+      authError: undefined,
+    });
   },
   login: async (credentials: AuthPayload) => {
     set({ isAuthLoading: true, authError: undefined });
@@ -95,9 +101,8 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
     set({ isAuthLoading: true });
     try {
       const profile = await fetchCurrentUser();
-      const mappedProfile = { ...profile, _id: (profile as unknown as { userId: string }).userId };
       set({
-        user: mappedProfile,
+        user: profile,
         likedSchools: profile.likes || [],
         unlockedSchools: profile.schoolsHistory || [],
       });

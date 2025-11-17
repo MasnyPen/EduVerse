@@ -1,6 +1,6 @@
 import { type ComponentType, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Compass, LogIn, LogOut, Map, Menu, User, X } from "lucide-react";
+import { Compass, LogIn, LogOut, Map, Menu, Trophy, User, X, Wrench } from "lucide-react";
 import { useUserStore, type UserStoreState } from "../store/userStore";
 
 const Navbar = () => {
@@ -22,7 +22,11 @@ const Navbar = () => {
   const navItems = useMemo<NavItem[]>(
     () => [
       { label: "Mapa 3D", path: "/dashboard", icon: Map },
+      { label: "Ranking", path: "/ranking", icon: Trophy },
       { label: "Profil", path: "/profile", icon: User },
+      ...(localStorage.getItem("developer") === "true"
+        ? [{ label: "Developer", path: "/developer", icon: Wrench }]
+        : []),
     ],
     []
   );
