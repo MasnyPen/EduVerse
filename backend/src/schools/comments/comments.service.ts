@@ -39,7 +39,7 @@ export class CommentsService {
             likes: []
         })    
 
-        await this.userModel.updateOne(new Types.ObjectId(userId), {
+        await this.userModel.updateOne({ _id: userId}, {
             $inc: { ranking: 10 }
         })
 
@@ -68,7 +68,7 @@ export class CommentsService {
 
     async deleteComment(id: string, userId: string): Promise<void> {
         await this.commentModel.findByIdAndDelete(id)
-        await this.userModel.updateOne(new Types.ObjectId(userId), {
+        await this.userModel.updateOne({ _id: userId}, {
             $inc: { ranking: -10 }
         })
     }
