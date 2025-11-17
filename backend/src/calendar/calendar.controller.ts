@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Headers, HttpCode, HttpStatus, Param, UseGuards, UseInterceptors } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/jwt-guard.guard';
 import { CalendarService } from './calendar.service';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
@@ -10,19 +10,17 @@ export class CalendarController {
 
     constructor(private calendarService: CalendarService) {}
 
-    @Get('today')
+    @Get("today")
     @UseGuards(JwtAuthGuard)
     @HttpCode(HttpStatus.OK)
-    async getTodayDate() {
-        return await this.calendarService.getTodayDate()
+    async getTodayDate(@Headers("x-custom-date") customDate?: string) {
+        return await this.calendarService.getTodayDate(customDate);
     }
 
-    @Get(':year')
+    @Get(":year")
     @HttpCode(HttpStatus.OK)
     @UseGuards(JwtAuthGuard)
-    async getCalendarByYear(@Param('year') year: string) {
-        return await this.calendarService.getCalendarByYear(+year)
+    async getCalendarByYear(@Param("year") year: string, @Headers("x-custom-date") customDate?: string) {
+        return await this.calendarService.getCalendarByYear(+year, customDate);
     }
-
-
 }

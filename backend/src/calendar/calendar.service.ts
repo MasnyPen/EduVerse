@@ -8,33 +8,42 @@ export class CalendarService {
 
     constructor(@InjectModel(Calendar.name) private calendarModel: Model<Calendar>) {}
 
-    async getTodayDate(): Promise<string> {
-        const date = new Date()
-        let year = date.getFullYear() 
+    async getTodayDate(customDate?: string): Promise<string> {
+        const date = customDate ? new Date(customDate) : new Date();
+        let year = date.getFullYear();
 
-        if (date.getMonth() <= 8 ) {
-            year--
+        if (date.getMonth() <= 8) {
+        year--;
         }
-        
-        const calendar = await this.calendarModel.findOne({year: year}).lean<Calendar>().exec()
 
+        const calendar = await this.calendarModel.findOne({ year: year }).lean<Calendar>().exec();
 
-        const today = `${year}-${date.getMonth()}-${date.getDate()}`
-        
-        if (calendar === null) return ""
+        const today = `${year}-${date.getMonth()}-${date.getDate()}`;
 
-        const todayDate = calendar.dates.find((el) => el.dates.includes(today))
+        if (calendar === null) return "";
 
-        return todayDate?.title || "Brak zaplanowanych wydarzeń na dziś."
+        const todayDate = calendar.dates.find((el) => el.dates.includes(today));
+
+        return todayDate?.title || "Brak zaplanowanych wydarzeń na dziś.";
     }
 
-    async getCalendarByYear(year: number): Promise<Calendar | null> {
-        const calendar = await this.calendarModel.findOne({year: Number(year)})
-        
-        if (calendar == null) {
-            throw new NotFoundException("Podany rok nie istnieje.")
+    async getCalendarByYear(year: number, customDate?: string): Promise<Calendar | null> {
+        const date = customDate ? new Date(customDate) : new Date();
+        let effectiveYear = year;
+
+        if (customDate) {
+        effectiveYear = date.getFullYear();
+        if (date.getMonth() <= 8) {
+            effectiveYear--;
+        }
         }
 
-        return calendar
+        const calendar = await this.calendarModel.findOne({ year: Number(effectiveYear) });
+
+        if (calendar == null) {
+        throw new NotFoundException("Podany rok nie istnieje.");
+        }
+
+        return calendar;
     }
 }

@@ -24,5 +24,6 @@ export interface UserDetails {
   username: string,
   likes?: string[],
   schoolsHistory?: string[],
-  ranking?: number
+  ranking?: number,
+  rankingPosition?: number
 }
