@@ -4,10 +4,11 @@ import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { User, UserDetails } from 'src/database/User';
 import { School } from 'src/database/School';
+import { Comment } from 'src/database/Comment';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<User>, @InjectModel(School.name) private schoolModel: Model<School>) {}
+  constructor(@InjectModel(User.name) private userModel: Model<User>, @InjectModel(School.name) private schoolModel: Model<School>, @InjectModel(Comment.name) private commentModel: Model<Comment>) {}
 
   async findOne(username: string): Promise<User | null> {
     const user = await this.userModel.findOne({ username }).lean<User>().exec();
@@ -42,9 +43,12 @@ export class UsersService {
 
   async getUser(user: { userId: string, username: string }): Promise<UserDetails> {
     const userLikes = await this.schoolModel.find({ likes: new Types.ObjectId(user.userId) }, { _id: 1 }).exec()
+    const data = await this.userModel.findById(user.userId, {schoolsHistory: 1, ranking: 1}).exec()
 
     const userDetails: UserDetails = {
-      ...user, likes: userLikes.map<string>(el => String(el._id)), schoolsHistory: await this.getUnlockedSchools(user.userId)
+      ...user, likes: userLikes.map<string>(el => String(el._id)), 
+      schoolsHistory: data?.schoolsHistory.map(el => String(el)) || [],
+      ranking: data?.ranking
     }
 
     return userDetails
@@ -69,10 +73,14 @@ export class UsersService {
       );
     }
 
-
     await this.userModel.updateOne(new Types.ObjectId(user.userId), {
-      $addToSet: {schoolsHistory: new Types.ObjectId(body.schoolId)}
+      $addToSet: {schoolsHistory: new Types.ObjectId(body.schoolId)},
+      $inc: { ranking: 10 }
     })
+  }
+
+  async getRanking(page: number, size: number) {
+    return await this.userModel.find({}, { _id: 1, username: 1, ranking: 1}).sort({ ranking: -1 }).limit(size).skip(page).lean<User[] | void[]>().exec()
   }
 
   async getUnlockedSchools(userId: string): Promise<string[]> {

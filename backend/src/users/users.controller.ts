@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from 'src/auth/jwt-guard.guard';
 
@@ -17,5 +17,11 @@ export class UsersController {
     @UseGuards(JwtAuthGuard)
     async unlockSchool(@Request() req) {
         return await this.usersService.unlockSchool(req.body, req.user)
+    }
+
+    @Get('ranking')
+    @UseGuards(JwtAuthGuard)
+    async getRanking(@Query('page') page = 0, @Query('size') size = 15) {
+      return await this.usersService.getRanking(page, size)
     }
 }

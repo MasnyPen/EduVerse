@@ -39,6 +39,10 @@ export class CommentsService {
             likes: []
         })    
 
+        await this.userModel.updateOne(new Types.ObjectId(userId), {
+            $inc: { ranking: 10 }
+        })
+
         return true
     }
 
@@ -62,8 +66,11 @@ export class CommentsService {
     }
 
 
-    async deleteComment(id: string): Promise<void> {
+    async deleteComment(id: string, userId: string): Promise<void> {
         await this.commentModel.findByIdAndDelete(id)
+        await this.userModel.updateOne(new Types.ObjectId(userId), {
+            $inc: { ranking: -10 }
+        })
     }
 
     async addLikeToComment(comId: string, userId: string) {

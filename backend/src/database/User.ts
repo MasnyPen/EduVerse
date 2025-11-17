@@ -12,6 +12,9 @@ export class User extends Document {
   @Prop({ required: true, type: [Types.ObjectId], ref: 'School', default: []})
   schoolsHistory: Types.ObjectId[]
 
+  @Prop({ required: true, default: 0})
+  ranking: number
+
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
@@ -20,5 +23,6 @@ export interface UserDetails {
   userId: string,
   username: string,
   likes?: string[],
-  schoolsHistory?: string[]
+  schoolsHistory?: string[],
+  ranking?: number
 }
