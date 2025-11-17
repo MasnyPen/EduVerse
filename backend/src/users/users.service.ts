@@ -75,8 +75,8 @@ export class UsersService {
 
     if (!school) throw new BadRequestException("Nie znaleziono szkoły");
 
-    const latMeters = body.latitude - school.coordinates!.latitude * 111_000;
-    const lonMeters = body.longitude - school.coordinates!.longitude * 111_000 * Math.cos(school.coordinates!.latitude * Math.PI / 180);
+    const latMeters = (body.latitude - school.coordinates!.latitude) * 111_000;
+    const lonMeters = (body.longitude - school.coordinates!.longitude) * 111_000 * Math.cos(school.coordinates!.latitude * Math.PI / 180);
 
     const distance = Math.sqrt(latMeters ** 2 + lonMeters ** 2);
 
@@ -89,7 +89,7 @@ export class UsersService {
       );
     }
 
-    await this.userModel.updateOne(new Types.ObjectId(user.userId), {
+    await this.userModel.updateOne({ _id: user.userId}, {
       $addToSet: {schoolsHistory: new Types.ObjectId(body.schoolId)},
       $inc: { ranking: 10 }
     })
