@@ -98,6 +98,7 @@ export interface Calendar {
   _id: string;
   year: number;
   dates: CalendarDate[];
+  availableYears?: number[];
 }
 
 export interface CalendarTimeSlot {
@@ -109,6 +110,8 @@ export interface CalendarTimeSlot {
   startIso?: string;
   endIso?: string;
   durationMinutes?: number | null;
+  voivodeships?: string[] | null;
+  hasAllVoivodeships?: boolean;
 }
 
 export interface CalendarDaySchedule {

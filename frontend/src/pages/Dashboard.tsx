@@ -12,6 +12,7 @@ import type { Coordinates, SchoolSummary } from "../types";
 import { MAP_DEFAULT_RADIUS_METERS } from "../utils/constants";
 import { annotateDistances } from "../utils/distance";
 import { getCurrentPosition, watchUserPosition } from "../utils/geolocation";
+import { getVoivodeshipFromCoordinates } from "../utils/calendar";
 import { useCalendarSchedule } from "../hooks/useCalendarSchedule";
 import { useCalendarToday } from "../hooks/useCalendarToday";
 import { useUserStore, type UserStoreState } from "../store/userStore";
@@ -29,33 +30,11 @@ const Dashboard = () => {
   const [geoError, setGeoError] = useState<string | null>(null);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel | null>(null);
-  const [developerDate, setDeveloperDate] = useState<string | null>(null);
-
-  useEffect(() => {
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === "developerDate") {
-        setDeveloperDate(event.newValue);
-      }
-    };
-
-    const handleCustomChange = (event: CustomEvent<string>) => {
-      setDeveloperDate(event.detail);
-    };
-
-    const currentDate = localStorage.getItem("developerDate");
-    setDeveloperDate(currentDate);
-
-    globalThis.addEventListener("storage", handleStorageChange);
-    globalThis.addEventListener("developerDateChanged", handleCustomChange as EventListener);
-
-    return () => {
-      globalThis.removeEventListener("storage", handleStorageChange);
-      globalThis.removeEventListener("developerDateChanged", handleCustomChange as EventListener);
-    };
-  }, []);
-  const { title: todayTitle, isLoading: isTodayLoading, error: todayError, refetch: refetchToday } = useCalendarToday();
+  const { title: todayTitle, error: todayError, refetch: refetchToday } = useCalendarToday();
   const {
-    days: calendarDays,
+    upcomingDays,
+    upcomingDay,
+    activeYear,
     isLoading: isCalendarLoading,
     error: calendarError,
     refetch: refetchCalendar,
@@ -313,10 +292,10 @@ const Dashboard = () => {
   const displayName = (user?.displayName ?? user?.username ?? "Gościu").trim() || "Gościu";
   const greetingMessage = user ? `Witaj ${displayName}!` : `Witaj, ${displayName}!`;
   const isGuest = !user;
-  const todayDate = developerDate ? new Date(developerDate) : new Date();
-  const dayName = new Intl.DateTimeFormat("pl-PL", { weekday: "short" }).format(todayDate).replace(/\.$/, "");
-  const dayNumber = new Intl.DateTimeFormat("pl-PL", { day: "2-digit" }).format(todayDate);
-  const calendarWidgetTitle = todayTitle ?? "Brak zaplanowanych wydarzeń na dziś.";
+  const widgetError = calendarError ?? (!upcomingDay ? todayError ?? null : null);
+  const isWidgetLoading = Boolean(isCalendarLoading && !upcomingDay && !widgetError);
+  const modalDays = upcomingDays;
+  const userVoivodeship = useMemo(() => getVoivodeshipFromCoordinates(userPosition), [userPosition]);
   const closeMobilePanel = useCallback(() => {
     setActiveMobilePanel(null);
   }, []);
@@ -413,14 +392,15 @@ const Dashboard = () => {
                     )}
                   </div>
                   <CalendarWidget
-                    dayName={dayName}
-                    dayNumber={dayNumber}
-                    eventTitle={calendarWidgetTitle}
-                    isLoading={isTodayLoading}
-                    error={todayError}
-                    onRetry={refetchToday}
+                    upcomingDay={upcomingDay}
+                    activeYear={activeYear}
+                    todayTitle={todayTitle}
+                    isLoading={isWidgetLoading}
+                    error={widgetError}
+                    onRetry={handleRefreshCalendar}
                     onOpen={handleOpenCalendar}
                     className="w-full"
+                    userVoivodeship={userVoivodeship}
                   />
                 </div>
               );
@@ -533,14 +513,15 @@ const Dashboard = () => {
               )}
               <div className="mt-6 flex flex-col gap-4">
                 <CalendarWidget
-                  dayName={dayName}
-                  dayNumber={dayNumber}
-                  eventTitle={calendarWidgetTitle}
-                  isLoading={isTodayLoading}
-                  error={todayError}
-                  onRetry={refetchToday}
+                  upcomingDay={upcomingDay}
+                  activeYear={activeYear}
+                  todayTitle={todayTitle}
+                  isLoading={isWidgetLoading}
+                  error={widgetError}
+                  onRetry={handleRefreshCalendar}
                   onOpen={handleOpenCalendar}
                   className="w-full"
+                  userVoivodeship={userVoivodeship}
                 />
                 <div className="grid gap-3">
                   <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
@@ -689,10 +670,12 @@ const Dashboard = () => {
       <CalendarModal
         open={isCalendarOpen}
         onClose={handleCloseCalendar}
-        days={calendarDays}
+        days={modalDays}
+        activeYear={activeYear}
         isLoading={isCalendarLoading}
         error={calendarError}
         onRefresh={handleRefreshCalendar}
+        highlightVoivodeship={userVoivodeship}
       />
 
       <SchoolModal

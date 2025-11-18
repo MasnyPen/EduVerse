@@ -10,6 +10,8 @@ interface UseCalendarScheduleOptions {
 interface UseCalendarScheduleResult {
   days: CalendarDaySchedule[];
   upcomingDays: CalendarDaySchedule[];
+  upcomingDay: CalendarDaySchedule | null;
+  activeYear: number;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -18,27 +20,43 @@ interface UseCalendarScheduleResult {
 export const useCalendarSchedule = (options: UseCalendarScheduleOptions = {}): UseCalendarScheduleResult => {
   const { locale = "pl-PL" } = options;
   const [days, setDays] = useState<CalendarDaySchedule[]>([]);
+  const [activeYear, setActiveYear] = useState<number>(() => getAcademicYear());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [developerDate, setDeveloperDate] = useState<string | null>(null);
 
-  const fetchCalendar = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const customDate = developerDate ? new Date(developerDate) : new Date();
-      const year = getAcademicYear(customDate);
-      const response = await getCalendarByYear(year);
-      const customNow = developerDate ? new Date(developerDate) : undefined;
-      const schedules = buildCalendarDaySchedules(response, { locale, customNow });
-      setDays(schedules);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Nie udało się wczytać kalendarza.";
-      setError(message);
-    } finally {
-      setIsLoading(false);
+  const effectiveNow = useMemo(() => {
+    if (!developerDate) {
+      return new Date();
     }
-  }, [locale, developerDate]);
+    const parsed = new Date(developerDate);
+    if (Number.isNaN(parsed.getTime())) {
+      return new Date();
+    }
+    return parsed;
+  }, [developerDate]);
+
+  const fetchCalendar = useCallback(
+    async (yearToLoad?: number) => {
+      setIsLoading(true);
+      setError(null);
+      const targetYear = typeof yearToLoad === "number" ? yearToLoad : getAcademicYear(effectiveNow);
+      setActiveYear(targetYear);
+      try {
+        const response = await getCalendarByYear(targetYear);
+        const schedules = buildCalendarDaySchedules(response, { locale, customNow: effectiveNow });
+        setDays(schedules);
+        const resolvedYear = typeof response.year === "number" ? response.year : targetYear;
+        setActiveYear(resolvedYear);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Nie udało się wczytać kalendarza.";
+        setError(message);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [effectiveNow, locale]
+  );
 
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
@@ -65,12 +83,10 @@ export const useCalendarSchedule = (options: UseCalendarScheduleOptions = {}): U
 
   useEffect(() => {
     void fetchCalendar();
-  }, [fetchCalendar, developerDate]);
+  }, [fetchCalendar, effectiveNow]);
 
-  const upcomingDays = useMemo(() => {
-    const customNow = developerDate ? new Date(developerDate) : new Date();
-    return filterUpcomingSchedules(days, customNow);
-  }, [days, developerDate]);
+  const upcomingDays = useMemo(() => filterUpcomingSchedules(days, effectiveNow), [days, effectiveNow]);
+  const upcomingDay = useMemo(() => (upcomingDays.length > 0 ? upcomingDays[0] : null), [upcomingDays]);
 
   const refetch = useCallback(() => {
     void fetchCalendar();
@@ -79,6 +95,8 @@ export const useCalendarSchedule = (options: UseCalendarScheduleOptions = {}): U
   return {
     days,
     upcomingDays,
+    upcomingDay,
+    activeYear,
     isLoading,
     error,
     refetch,

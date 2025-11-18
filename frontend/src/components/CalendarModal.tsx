@@ -1,17 +1,29 @@
 import { CalendarDays, RefreshCcw, X } from "lucide-react";
 import type { CalendarDaySchedule } from "../types";
+import { formatAcademicYearLabel } from "../utils/calendar";
 import CalendarTimeline from "./CalendarTimeline";
 
 interface CalendarModalProps {
   open: boolean;
   onClose: () => void;
   days: CalendarDaySchedule[];
+  activeYear: number;
   isLoading: boolean;
   error: string | null;
   onRefresh: () => void;
+  highlightVoivodeship?: string | null;
 }
 
-const CalendarModal = ({ open, onClose, days, isLoading, error, onRefresh }: CalendarModalProps) => {
+const CalendarModal = ({
+  open,
+  onClose,
+  days,
+  activeYear,
+  isLoading,
+  error,
+  onRefresh,
+  highlightVoivodeship = null,
+}: CalendarModalProps) => {
   if (!open) {
     return null;
   }
@@ -26,7 +38,7 @@ const CalendarModal = ({ open, onClose, days, isLoading, error, onRefresh }: Cal
             </div>
             <div>
               <h2 className="text-lg font-semibold">Kalendarz szkolny</h2>
-              <p className="text-xs text-slate-400">Przegląd wydarzeń w roku szkolnym.</p>
+              <p className="text-xs text-slate-400">Nadchodzące wydarzenia w bieżącym roku szkolnym.</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -48,13 +60,19 @@ const CalendarModal = ({ open, onClose, days, isLoading, error, onRefresh }: Cal
             </button>
           </div>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto p-6">
+        <div className="max-h-[70vh] overflow-y-auto px-6 pb-6">
+          <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 bg-white py-4">
+            <span className="inline-flex items-center rounded-full bg-sky-50 px-4 py-1.5 text-xs font-semibold text-sky-600">
+              Rok szkolny {formatAcademicYearLabel(activeYear)}
+            </span>
+          </div>
           <CalendarTimeline
             days={days}
             isLoading={isLoading}
             error={error}
             onRefresh={onRefresh}
-            maxItems={Math.max(days.length, 10)}
+            maxItems={days.length || 0}
+            highlightVoivodeship={highlightVoivodeship}
           />
         </div>
       </div>

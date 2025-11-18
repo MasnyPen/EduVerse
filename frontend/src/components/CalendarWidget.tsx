@@ -1,27 +1,50 @@
 import { type MouseEventHandler } from "react";
 import { CalendarDays, ChevronRight, Loader2, RefreshCcw } from "lucide-react";
+import type { CalendarDaySchedule } from "../types";
+import { formatAcademicYearLabel, getAcademicYearFromIsoDate } from "../utils/calendar";
 
 interface CalendarWidgetProps {
-  dayName: string;
-  dayNumber: string;
-  eventTitle: string;
+  upcomingDay: CalendarDaySchedule | null;
+  activeYear: number;
+  todayTitle: string | null;
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
   onOpen: MouseEventHandler<HTMLButtonElement>;
   className?: string;
+  userVoivodeship?: string | null;
 }
 
 const CalendarWidget = ({
-  dayName,
-  dayNumber,
-  eventTitle,
+  upcomingDay,
+  activeYear,
+  todayTitle,
   isLoading,
   error,
   onRetry,
   onOpen,
   className,
+  userVoivodeship = null,
 }: CalendarWidgetProps) => {
+  const fallbackDate = new Date();
+  const eventDate = upcomingDay ? new Date(`${upcomingDay.isoDate}T00:00:00`) : fallbackDate;
+  const dayName = new Intl.DateTimeFormat("pl-PL", { weekday: "short" }).format(eventDate).replace(/\.$/, "");
+  const dayNumber = new Intl.DateTimeFormat("pl-PL", { day: "2-digit" }).format(eventDate);
+  const formattedDate = upcomingDay
+    ? `${upcomingDay.displayDate.charAt(0).toUpperCase()}${upcomingDay.displayDate.slice(1)}`
+    : `Brak zaplanowanych wydarzeń w roku szkolnym ${formatAcademicYearLabel(activeYear)}.`;
+  const academicYearLabel = upcomingDay
+    ? formatAcademicYearLabel(getAcademicYearFromIsoDate(upcomingDay.isoDate))
+    : formatAcademicYearLabel(activeYear);
+  const mainTitle = upcomingDay ? upcomingDay.title : "Brak nadchodzących wydarzeń";
+  const relevantSlot = upcomingDay?.slots.find((slot) => slot.hasAllVoivodeships || slot.voivodeships?.length);
+  const coversAllVoivodeships = Boolean(relevantSlot?.hasAllVoivodeships);
+  const coversUserVoivodeship = Boolean(
+    userVoivodeship &&
+      (relevantSlot?.hasAllVoivodeships ||
+        relevantSlot?.voivodeships?.some((name) => name.toLowerCase() === userVoivodeship.toLowerCase()))
+  );
+
   const baseClass =
     "group relative flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-left shadow-sm transition hover:border-sky-200 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400";
 
@@ -33,9 +56,9 @@ const CalendarWidget = ({
           <span className="text-2xl font-bold leading-none">{dayNumber}</span>
         </div>
         <div className="flex flex-col items-start text-left">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-400">
             <CalendarDays className="size-3" />
-            <span>Dzisiejsze wydarzenie</span>
+            <span>Nadchodzące wydarzenie</span>
           </div>
           {isLoading ? (
             <div className="mt-1 inline-flex items-center gap-2 text-sm text-slate-500">
@@ -58,7 +81,27 @@ const CalendarWidget = ({
               </button>
             </div>
           ) : (
-            <p className="mt-1 text-sm font-medium text-slate-700">{eventTitle}</p>
+            <div className="mt-1 flex flex-col gap-1">
+              <p className="text-sm font-semibold text-slate-800">{mainTitle}</p>
+              <p className="text-xs text-slate-500">{formattedDate}</p>
+              {academicYearLabel ? (
+                <p className="text-[11px] font-semibold tracking-wide text-slate-400">
+                  Rok szkolny {academicYearLabel}
+                </p>
+              ) : null}
+              {coversAllVoivodeships ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-sky-600">
+                  <span>Wszystkie województwa</span>
+                </span>
+              ) : coversUserVoivodeship ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-emerald-600">
+                  <span>Dotyczy Twojego województwa</span>
+                </span>
+              ) : null}
+              {todayTitle && !upcomingDay?.isToday ? (
+                <p className="text-[11px] text-slate-400">Dzisiejsze wydarzenie: {todayTitle}</p>
+              ) : null}
+            </div>
           )}
         </div>
       </div>
