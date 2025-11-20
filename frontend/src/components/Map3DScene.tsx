@@ -13,6 +13,7 @@ import type { Coordinates, SchoolSummary } from "../types";
 import { MAP_DEFAULT_ZOOM, MAP_UNLOCK_RADIUS_METERS } from "../utils/constants";
 import { haversine } from "../utils/distance";
 import { watchUserPosition } from "../utils/geolocation";
+import { Scan3DAnimation } from "./Scan3DAnimation";
 
 interface Map3DSceneProps {
   userPosition: Coordinates | null;
@@ -46,7 +47,8 @@ const BUILDINGS_SOURCE_ID = "eduverse-buildings-source";
 const INITIAL_PITCH = 58;
 const INITIAL_BEARING = -24;
 const INTERACTION_RELEASE_DELAY = 1400;
-const SCAN_ANIMATION_DURATION_MS = 700;
+const SCAN_ANIMATION_DURATION_MS = 5200;
+const SCAN_COOLDOWN_MS = 60_000;
 
 const envVars = import.meta.env as Record<string, string | undefined>;
 const VECTOR_STYLE_URL = (envVars.VITE_MAP_STYLE_URL ?? "").trim();
@@ -165,6 +167,8 @@ export const Map3DScene = ({
   const [internalPosition, setInternalPosition] = useState<Coordinates | null>(null);
   const [geolocationError, setGeolocationError] = useState<string | null>(null);
   const [isScanActive, setIsScanActive] = useState(false);
+  const [lastScanTimestamp, setLastScanTimestamp] = useState<number | null>(null);
+  const [cooldownRemainingMs, setCooldownRemainingMs] = useState(0);
 
   const livePosition = userPosition ?? internalPosition;
 
@@ -195,6 +199,25 @@ export const Map3DScene = ({
       scanStartRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (lastScanTimestamp == null) {
+      setCooldownRemainingMs(0);
+      return;
+    }
+
+    const update = () => {
+      const remaining = Math.max(0, SCAN_COOLDOWN_MS - (Date.now() - lastScanTimestamp));
+      setCooldownRemainingMs(remaining);
+    };
+
+    update();
+    const id = globalThis.setInterval(update, 500);
+
+    return () => {
+      globalThis.clearInterval(id);
+    };
+  }, [lastScanTimestamp]);
 
   const finishScanWithMinimumDuration = useCallback((minimumDuration: number = SCAN_ANIMATION_DURATION_MS) => {
     if (scanStartRef.current == null) {
@@ -279,7 +302,7 @@ export const Map3DScene = ({
   );
 
   const handleManualScan = useCallback(() => {
-    if (isScanActive || !livePosition) {
+    if (isScanActive || !livePosition || cooldownRemainingMs > 0) {
       return;
     }
 
@@ -288,7 +311,9 @@ export const Map3DScene = ({
       scanTimeoutRef.current = null;
     }
 
-    scanStartRef.current = Date.now();
+    const now = Date.now();
+    scanStartRef.current = now;
+    setLastScanTimestamp(now);
     setIsScanActive(true);
 
     if (!onScan) {
@@ -744,9 +769,18 @@ export const Map3DScene = ({
     };
   }, [mapReady]);
 
-  const isScanDisabled = !livePosition || isScanActive;
-  const scanButtonLabel = isScanActive ? "Skanowanie..." : "Skanuj okolice";
-  const scanTooltip = isScanDisabled ? "Oczekiwanie na lokalizację" : "Przeskanuj najbliższe szkoły";
+  const isCooldownActive = cooldownRemainingMs > 0;
+  const isScanDisabled = !livePosition || isScanActive || isCooldownActive;
+  const scanButtonLabel = isScanActive
+    ? "Skanowanie..."
+    : isCooldownActive
+      ? `Odczekaj ${Math.ceil(cooldownRemainingMs / 1000)} s`
+      : "Skanuj okolice";
+  const scanTooltip = livePosition
+    ? isCooldownActive
+      ? "Skanowanie dostępne co 60 sekund"
+      : "Przeskanuj najbliższe szkoły"
+    : "Oczekiwanie na lokalizację";
 
   return (
     <div className="relative h-full w-full">
@@ -779,17 +813,7 @@ export const Map3DScene = ({
         ) : null}
       </div>
 
-      {isScanActive ? (
-        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
-          <div className="relative flex h-56 w-56 items-center justify-center">
-            <span className="absolute inline-flex h-56 w-56 rounded-full bg-sky-400/20 opacity-80 animate-ping" />
-            <span className="absolute inline-flex h-72 w-72 rounded-full border border-sky-400/30 opacity-60 animate-ping [animation-delay:180ms]" />
-            <span className="relative inline-flex h-32 w-32 items-center justify-center rounded-full border border-sky-500/70 bg-sky-500/10 text-xs font-semibold uppercase tracking-[0.35em] text-sky-700 shadow-inner">
-              Skanuję
-            </span>
-          </div>
-        </div>
-      ) : null}
+      {isScanActive ? <Scan3DAnimation caption="Analizuję teren" /> : null}
 
       {geolocationError && !userPosition ? (
         <div className="absolute right-4 top-4 z-20 max-w-xs rounded-2xl bg-amber-100/90 px-4 py-3 text-xs font-semibold text-amber-800 shadow-lg sm:right-6 sm:top-6">

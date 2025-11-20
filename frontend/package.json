@@ -20,6 +20,7 @@
     "react-router-dom": "^6.28.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss": "^4.1.17",
+    "three": "^0.170.0",
     "webxr-polyfill": "^1.0.0",
     "zustand": "^4.5.5"
   },
@@ -28,6 +29,7 @@
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "@types/three": "^0.170.0",
     "@vitejs/plugin-react": "^5.1.0",
     "babel-plugin-react-compiler": "^19.1.0-rc.3",
     "eslint": "^9.39.1",
