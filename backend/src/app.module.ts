@@ -11,6 +11,7 @@ import { SchoolsModule } from './schools/schools.module';
 import { CommentsModule } from './schools/comments/comments.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { GuardsModule } from './guards/guards.module';
+import { EdustopsModule } from './edustops/edustops.module';
 
 @Module({
   imports: [
@@ -46,7 +47,8 @@ import { GuardsModule } from './guards/guards.module';
     UsersModule,
     SchoolsModule,
     CalendarModule,
-    GuardsModule
+    GuardsModule,
+    EdustopsModule
   ],
   controllers: [AppController],
   providers: [AppService],
