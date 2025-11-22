@@ -11,11 +11,19 @@ interface UseCalendarTodayResult extends UseCalendarTodayState {
   refetch: () => void;
 }
 
-export const useCalendarToday = (): UseCalendarTodayResult => {
+interface UseCalendarTodayOptions {
+  enabled?: boolean;
+}
+
+export const useCalendarToday = ({ enabled = true }: UseCalendarTodayOptions = {}): UseCalendarTodayResult => {
   const [state, setState] = useState<UseCalendarTodayState>({ title: null, isLoading: false, error: null });
   const [developerDate, setDeveloperDate] = useState<string | null>(null);
 
   const fetchToday = useCallback(async () => {
+    if (!enabled) {
+      setState((prev) => ({ ...prev, isLoading: false }));
+      return;
+    }
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
       const response = await getTodayCalendarTitle();
@@ -25,7 +33,7 @@ export const useCalendarToday = (): UseCalendarTodayResult => {
       const message = err instanceof Error ? err.message : "Nie udało się pobrać dzisiejszego wydarzenia.";
       setState({ title: null, isLoading: false, error: message });
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
@@ -51,12 +59,19 @@ export const useCalendarToday = (): UseCalendarTodayResult => {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setState({ title: null, isLoading: false, error: null });
+      return;
+    }
     void fetchToday();
-  }, [fetchToday, developerDate]);
+  }, [fetchToday, developerDate, enabled]);
 
   const refetch = useCallback(() => {
+    if (!enabled) {
+      return;
+    }
     void fetchToday();
-  }, [fetchToday]);
+  }, [fetchToday, enabled]);
 
   return { ...state, refetch };
 };

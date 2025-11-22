@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AlertCircle, BarChart3, Heart, Info, LogIn, School, Sparkles, X } from "lucide-react";
 import AppShell from "../components/AppShell";
 import CalendarModal from "../components/CalendarModal";
@@ -21,7 +20,19 @@ const MAX_LISTED_SCHOOLS = 5;
 type MobilePanel = "greeting" | "schools" | "stats";
 
 const Dashboard = () => {
-  const navigate = useNavigate();
+  const { token, user, hydrateUser, likedSchools, unlockedSchools, like, unlike, unlock } = useUserStore(
+    (state: UserStoreState) => ({
+      token: state.token,
+      user: state.user,
+      hydrateUser: state.hydrateUser,
+      likedSchools: state.likedSchools,
+      unlockedSchools: state.unlockedSchools,
+      like: state.like,
+      unlike: state.unlike,
+      unlock: state.unlock,
+    })
+  );
+  const isAuthenticated = Boolean(token);
   const [userPosition, setUserPosition] = useState<Coordinates | null>(null);
   const [schools, setSchools] = useState<SchoolSummary[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
@@ -30,7 +41,11 @@ const Dashboard = () => {
   const [geoError, setGeoError] = useState<string | null>(null);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel | null>(null);
-  const { title: todayTitle, error: todayError, refetch: refetchToday } = useCalendarToday();
+  const {
+    title: todayTitle,
+    error: todayError,
+    refetch: refetchToday,
+  } = useCalendarToday({ enabled: isAuthenticated });
   const {
     upcomingDays,
     upcomingDay,
@@ -38,7 +53,7 @@ const Dashboard = () => {
     isLoading: isCalendarLoading,
     error: calendarError,
     refetch: refetchCalendar,
-  } = useCalendarSchedule({ locale: "pl-PL" });
+  } = useCalendarSchedule({ locale: "pl-PL", enabled: isAuthenticated });
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   useEffect(() => {
@@ -53,19 +68,6 @@ const Dashboard = () => {
       document.body.style.overflow = original;
     };
   }, []);
-
-  const { token, user, hydrateUser, likedSchools, unlockedSchools, like, unlike, unlock } = useUserStore(
-    (state: UserStoreState) => ({
-      token: state.token,
-      user: state.user,
-      hydrateUser: state.hydrateUser,
-      likedSchools: state.likedSchools,
-      unlockedSchools: state.unlockedSchools,
-      like: state.like,
-      unlike: state.unlike,
-      unlock: state.unlock,
-    })
-  );
 
   const bootstrappedUser = useRef(false);
   const latestPositionRef = useRef<Coordinates | null>(null);
@@ -243,7 +245,7 @@ const Dashboard = () => {
       .slice(0, MAX_LISTED_SCHOOLS);
   }, [schools]);
 
-  const handleAutoUnlock = useCallback(
+  const handleManualUnlock = useCallback(
     async (schoolId: string) => {
       if (!token) {
         return;
@@ -252,18 +254,11 @@ const Dashboard = () => {
         await unlock(schoolId);
         setSchools((prev) => prev.map((item) => (item._id === schoolId ? { ...item, unlocked: true } : item)));
       } catch (error) {
-        console.error("Automatyczne odblokowanie szkoły nie powiodło się", error);
+        console.error("Odblokowanie szkoły nie powiodło się", error);
         throw error;
       }
     },
     [token, unlock]
-  );
-
-  const handleManualUnlock = useCallback(
-    async (schoolId: string) => {
-      await handleAutoUnlock(schoolId);
-    },
-    [handleAutoUnlock]
   );
 
   const handleLike = useCallback(
@@ -292,7 +287,7 @@ const Dashboard = () => {
   const displayName = (user?.displayName ?? user?.username ?? "Gościu").trim() || "Gościu";
   const greetingMessage = user ? `Witaj ${displayName}!` : `Witaj, ${displayName}!`;
   const isGuest = !user;
-  const widgetError = calendarError ?? (!upcomingDay ? todayError ?? null : null);
+  const widgetError = calendarError ?? (upcomingDay ? null : todayError ?? null);
   const isWidgetLoading = Boolean(isCalendarLoading && !upcomingDay && !widgetError);
   const modalDays = upcomingDays;
   const userVoivodeship = useMemo(() => getVoivodeshipFromCoordinates(userPosition), [userPosition]);
@@ -302,10 +297,6 @@ const Dashboard = () => {
   const openMobilePanel = useCallback((panel: MobilePanel) => {
     setActiveMobilePanel((current) => (current === panel ? null : panel));
   }, []);
-  const handleMobileLogin = useCallback(() => {
-    closeMobilePanel();
-    navigate("/login");
-  }, [closeMobilePanel, navigate]);
   const handleMobileSelectSchool = useCallback(
     (schoolId: string) => {
       setSelectedSchoolId(schoolId);
@@ -355,20 +346,10 @@ const Dashboard = () => {
                   <div className="space-y-3">
                     <p className="text-base font-semibold text-slate-700">{greetingMessage}</p>
                     {isGuest ? (
-                      <>
-                        <p>
-                          Zaloguj się, aby odkrywać i odblokowywać szkoły w swojej okolicy oraz zapisywać ulubione
-                          miejsca.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleMobileLogin}
-                          className="inline-flex items-center gap-2 rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-                        >
-                          <LogIn className="size-4" />
-                          <span>Zaloguj się</span>
-                        </button>
-                      </>
+                      <p>
+                        Zaloguj się, aby odkrywać i odblokowywać szkoły w swojej okolicy oraz zapisywać ulubione
+                        miejsca.
+                      </p>
                     ) : (
                       <div className="space-y-3">
                         <p>Miło Cię widzieć, {displayName}. Kontynuuj eksplorację EduVerse!</p>
@@ -476,7 +457,6 @@ const Dashboard = () => {
               onSelectSchool={(school) => setSelectedSchoolId(school._id)}
               unlockedSchoolIds={unlockedSchoolIds}
               likedSchoolIds={likedSchoolIds}
-              onAutoUnlock={handleAutoUnlock}
               onScan={handleManualScan}
               isRefreshing={isFetchingSchools}
             />

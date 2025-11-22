@@ -16,6 +16,8 @@ export interface UserStoreState {
   authError?: string;
   likedSchools: string[];
   unlockedSchools: string[];
+  shouldDefaultToLogin: boolean;
+  consumePreferredAuthMode: () => void;
   setAuthData: (payload: AuthSession) => void;
   login: (credentials: AuthPayload) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
@@ -30,6 +32,7 @@ export interface UserStoreState {
 const defaultSlices = {
   isAuthLoading: false,
   authError: undefined as string | undefined,
+  shouldDefaultToLogin: false,
 };
 
 type PersistedState = Pick<UserStoreState, "token">;
@@ -59,6 +62,7 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
   likedSchools: [],
   unlockedSchools: [],
   ...defaultSlices,
+  consumePreferredAuthMode: () => set({ shouldDefaultToLogin: false }),
   setAuthData: (payload: AuthSession) => {
     authTokenStorage.set(payload.token);
     set({
@@ -67,13 +71,14 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
       likedSchools: payload.user.likes || [],
       unlockedSchools: payload.user.schoolsHistory || [],
       authError: undefined,
+      shouldDefaultToLogin: false,
     });
   },
   login: async (credentials: AuthPayload) => {
     set({ isAuthLoading: true, authError: undefined });
     try {
       const session = await loginRequest(credentials);
-      set({ token: session.token, user: session.user });
+      set({ token: session.token, user: session.user, shouldDefaultToLogin: false });
     } catch (error) {
       const message = resolveErrorMessage(error) ?? "Nie udało się zalogować. Sprawdź dane i spróbuj ponownie.";
       set({ authError: message });
@@ -86,7 +91,7 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
     set({ isAuthLoading: true, authError: undefined });
     try {
       const session = await registerRequest(payload);
-      set({ token: session.token, user: session.user });
+      set({ token: session.token, user: session.user, shouldDefaultToLogin: false });
     } catch (error) {
       const message = resolveErrorMessage(error) ?? "Rejestracja nie powiodła się. Spróbuj ponownie.";
       set({ authError: message });
@@ -158,6 +163,7 @@ const storeCreator = (set: StoreSet, get: StoreGet): UserStoreState => ({
       likedSchools: [],
       unlockedSchools: [],
       ...defaultSlices,
+      shouldDefaultToLogin: true,
     });
   },
   handleUnauthorized: () => {

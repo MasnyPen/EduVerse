@@ -2,10 +2,10 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useUserStore } from "./store/userStore";
 import Dashboard from "./pages/Dashboard";
-import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 import Developer from "./pages/Developer";
 import Ranking from "./pages/Ranking";
+import AuthOverlay from "./components/auth/AuthOverlay";
 
 const App = () => {
   const hydrateUser = useUserStore((state) => state.hydrateUser);
@@ -50,12 +50,12 @@ const App = () => {
 
   return (
     <BrowserRouter>
+      <AuthOverlay />
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/ranking" element={<Ranking />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/login" element={<Login />} />
         {isDeveloperMode && <Route path="/developer" element={<Developer />} />}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

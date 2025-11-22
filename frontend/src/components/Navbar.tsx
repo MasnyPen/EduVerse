@@ -1,6 +1,6 @@
 import { type ComponentType, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Compass, LogIn, LogOut, Map, Menu, Trophy, User, X, Wrench } from "lucide-react";
+import { Compass, LogOut, Map, Menu, Trophy, User, X, Wrench } from "lucide-react";
 import { useUserStore, type UserStoreState } from "../store/userStore";
 
 const Navbar = () => {
@@ -36,11 +36,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
-  };
-
-  const handleLogin = () => {
-    navigate("/login");
+    navigate("/dashboard");
   };
 
   useEffect(() => {
@@ -103,20 +99,17 @@ const Navbar = () => {
             <LogOut className="size-4" />
             Wyloguj
           </button>
-        ) : (
-          <button
-            onClick={handleLogin}
-            className="group relative hidden items-center gap-2 overflow-hidden rounded-full border border-sky-200 px-4 py-2 text-sm font-semibold text-sky-600 transition hover:border-sky-300 hover:text-sky-700 hover:shadow-md lg:flex"
-          >
-            <LogIn className="size-4" />
-            Zaloguj się
-          </button>
-        )}
+        ) : null}
       </div>
 
       {isMenuOpen && (
         <div className="fixed inset-0 z-999 flex items-start justify-center bg-slate-950/30 backdrop-blur-sm lg:hidden">
-          <div onClick={() => setIsMenuOpen(false)} className="absolute inset-0" aria-label="Zamknij menu" />
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen(false)}
+            className="absolute inset-0 cursor-default bg-transparent p-0 m-0 border-0"
+            aria-label="Zamknij menu"
+          />
 
           <aside className="relative mt-4 w-[90%] max-w-md rounded-3xl bg-white/95 p-6 shadow-2xl ring-1 ring-slate-200 backdrop-blur-xl animate-[fadeInUp_0.25s_ease-out]">
             <div className="mb-4 flex items-center justify-between">
@@ -165,13 +158,7 @@ const Navbar = () => {
                 Wyloguj się
               </button>
             ) : (
-              <button
-                onClick={handleLogin}
-                className="mt-5 flex items-center justify-center gap-2 rounded-full bg-linear-to-r from-sky-500 to-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110"
-              >
-                <LogIn className="size-5" />
-                Zaloguj się
-              </button>
+              <p className="mt-5 text-center text-sm text-slate-500">Zaloguj się poprzez wyświetlony modal.</p>
             )}
 
             <p className="mt-4 text-center text-xs text-slate-400">EduVerse • Twoja mapa edukacyjnych odkryć</p>

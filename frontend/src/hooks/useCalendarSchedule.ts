@@ -5,6 +5,7 @@ import { buildCalendarDaySchedules, filterUpcomingSchedules, getAcademicYear } f
 
 interface UseCalendarScheduleOptions {
   locale?: string;
+  enabled?: boolean;
 }
 
 interface UseCalendarScheduleResult {
@@ -18,7 +19,7 @@ interface UseCalendarScheduleResult {
 }
 
 export const useCalendarSchedule = (options: UseCalendarScheduleOptions = {}): UseCalendarScheduleResult => {
-  const { locale = "pl-PL" } = options;
+  const { locale = "pl-PL", enabled = true } = options;
   const [days, setDays] = useState<CalendarDaySchedule[]>([]);
   const [activeYear, setActiveYear] = useState<number>(() => getAcademicYear());
   const [isLoading, setIsLoading] = useState(false);
@@ -82,15 +83,24 @@ export const useCalendarSchedule = (options: UseCalendarScheduleOptions = {}): U
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false);
+      setDays([]);
+      setError(null);
+      return;
+    }
     void fetchCalendar();
-  }, [fetchCalendar, effectiveNow]);
+  }, [fetchCalendar, effectiveNow, enabled]);
 
   const upcomingDays = useMemo(() => filterUpcomingSchedules(days, effectiveNow), [days, effectiveNow]);
   const upcomingDay = useMemo(() => (upcomingDays.length > 0 ? upcomingDays[0] : null), [upcomingDays]);
 
   const refetch = useCallback(() => {
+    if (!enabled) {
+      return;
+    }
     void fetchCalendar();
-  }, [fetchCalendar]);
+  }, [fetchCalendar, enabled]);
 
   return {
     days,

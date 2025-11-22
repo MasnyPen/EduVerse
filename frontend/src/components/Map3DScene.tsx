@@ -10,7 +10,7 @@ import {
 } from "maplibre-gl";
 import { Scan } from "lucide-react";
 import type { Coordinates, SchoolSummary } from "../types";
-import { MAP_DEFAULT_ZOOM, MAP_UNLOCK_RADIUS_METERS } from "../utils/constants";
+import { MAP_DEFAULT_ZOOM } from "../utils/constants";
 import { haversine } from "../utils/distance";
 import { watchUserPosition } from "../utils/geolocation";
 import { Scan3DAnimation } from "./Scan3DAnimation";
@@ -21,7 +21,6 @@ interface Map3DSceneProps {
   onSelectSchool: (school: SchoolSummary) => void;
   unlockedSchoolIds: Set<string>;
   likedSchoolIds: Set<string>;
-  onAutoUnlock?: (schoolId: string) => Promise<void>;
   onScan?: () => Promise<boolean | void> | boolean | void;
   isRefreshing?: boolean;
 }
@@ -142,7 +141,6 @@ export const Map3DScene = ({
   onSelectSchool,
   unlockedSchoolIds,
   likedSchoolIds,
-  onAutoUnlock,
   onScan,
   isRefreshing = false,
 }: Map3DSceneProps) => {
@@ -151,7 +149,6 @@ export const Map3DScene = ({
   const markerStoreRef = useRef<Map<string, MarkerRecord>>(new Map());
   const markerStateRef = useRef<Map<string, MarkerVisualState>>(new Map());
   const logoCacheRef = useRef<Map<string, string>>(new Map());
-  const pendingUnlockRef = useRef<Set<string>>(new Set());
   const userMarkerRef = useRef<Marker | null>(null);
   const userPositionRef = useRef<Coordinates | null>(null);
   const hasCenteredRef = useRef(false);
@@ -269,37 +266,15 @@ export const Map3DScene = ({
     }
   }, []);
 
-  const updateMarkersForPosition = useCallback(
-    (position: Coordinates) => {
-      for (const [id, record] of markerStoreRef.current.entries()) {
-        const state = markerStateRef.current.get(id);
-        const distance = haversine(position, record.school.coordinates);
-        const scale = computeMarkerScale(distance, Boolean(state?.isUnlocked));
-        record.element.style.setProperty("--marker-scale", scale.toFixed(3));
-        record.element.dataset.distanceMeters = distance.toFixed(1);
-
-        const alreadyUnlocked = Boolean(state?.isUnlocked);
-        const isPending = pendingUnlockRef.current.has(id);
-
-        if (alreadyUnlocked || isPending || distance > MAP_UNLOCK_RADIUS_METERS) {
-          continue;
-        }
-
-        pendingUnlockRef.current.add(id);
-        const unlockPromise = onAutoUnlock?.(id);
-        if (unlockPromise) {
-          unlockPromise
-            .catch((error) => console.error("Automatyczne odblokowanie szkoły nie powiodło się", error))
-            .finally(() => {
-              pendingUnlockRef.current.delete(id);
-            });
-        } else {
-          pendingUnlockRef.current.delete(id);
-        }
-      }
-    },
-    [onAutoUnlock]
-  );
+  const updateMarkersForPosition = useCallback((position: Coordinates) => {
+    for (const [id, record] of markerStoreRef.current.entries()) {
+      const state = markerStateRef.current.get(id);
+      const distance = haversine(position, record.school.coordinates);
+      const scale = computeMarkerScale(distance, Boolean(state?.isUnlocked));
+      record.element.style.setProperty("--marker-scale", scale.toFixed(3));
+      record.element.dataset.distanceMeters = distance.toFixed(1);
+    }
+  }, []);
 
   const handleManualScan = useCallback(() => {
     if (isScanActive || !livePosition || cooldownRemainingMs > 0) {
@@ -329,7 +304,7 @@ export const Map3DScene = ({
         console.error("Nie udało się odświeżyć szkół podczas skanowania", error);
         finishScanWithMinimumDuration(SCAN_ANIMATION_DURATION_MS / 2);
       });
-  }, [isScanActive, livePosition, onScan, finishScanWithMinimumDuration]);
+  }, [isScanActive, livePosition, cooldownRemainingMs, onScan, finishScanWithMinimumDuration]);
 
   const syncUserMarker = useCallback((map: MapLibreMap, position: Coordinates) => {
     let marker = userMarkerRef.current;
@@ -719,14 +694,6 @@ export const Map3DScene = ({
   }, [schools, livePosition, mapReady]);
 
   useEffect(() => {
-    for (const id of pendingUnlockRef.current) {
-      if (unlockedSchoolIds.has(id)) {
-        pendingUnlockRef.current.delete(id);
-      }
-    }
-  }, [unlockKey, unlockedSchoolIds]);
-
-  useEffect(() => {
     if (!mapReady || !mapRef.current) {
       return;
     }
@@ -774,8 +741,8 @@ export const Map3DScene = ({
   const scanButtonLabel = isScanActive
     ? "Skanowanie..."
     : isCooldownActive
-      ? `Odczekaj ${Math.ceil(cooldownRemainingMs / 1000)} s`
-      : "Skanuj okolice";
+    ? `Odczekaj ${Math.ceil(cooldownRemainingMs / 1000)} s`
+    : "Skanuj okolice";
   const scanTooltip = livePosition
     ? isCooldownActive
       ? "Skanowanie dostępne co 60 sekund"
