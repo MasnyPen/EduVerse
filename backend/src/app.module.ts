@@ -12,6 +12,7 @@ import { CommentsModule } from './schools/comments/comments.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { GuardsModule } from './guards/guards.module';
 import { EdustopsModule } from './edustops/edustops.module';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
@@ -48,7 +49,8 @@ import { EdustopsModule } from './edustops/edustops.module';
     SchoolsModule,
     CalendarModule,
     GuardsModule,
-    EdustopsModule
+    EdustopsModule,
+    TasksModule
   ],
   controllers: [AppController],
   providers: [AppService],
