@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
 import { EdustopsService } from './edustops.service';
 import { EdustopsController } from './edustops.controller';
-import { EduStop, EduStopSchema } from 'src/database/EduStop';
-import { MongooseModule } from '@nestjs/mongoose';
+import { DatabaseModule } from 'src/database/database.module';
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: EduStop.name, schema: EduStopSchema }])],
+  imports: [DatabaseModule],
   providers: [EdustopsService],
   controllers: [EdustopsController]
 })

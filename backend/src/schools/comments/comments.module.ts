@@ -4,9 +4,10 @@ import { CommentsController } from './comments.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Comment, CommentSchema } from 'src/database/Comment';
 import { UsersModule } from 'src/users/users.module';
+import { DatabaseModule } from 'src/database/database.module';
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: Comment.name, schema: CommentSchema }]), UsersModule],
+  imports: [DatabaseModule],
   providers: [CommentsService],
   controllers: [CommentsController]
 })

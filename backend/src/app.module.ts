@@ -13,6 +13,7 @@ import { CalendarModule } from './calendar/calendar.module';
 import { GuardsModule } from './guards/guards.module';
 import { EdustopsModule } from './edustops/edustops.module';
 import { TasksModule } from './tasks/tasks.module';
+import { DatabaseModule } from './database/database.module';
 
 @Module({
   imports: [
@@ -50,7 +51,8 @@ import { TasksModule } from './tasks/tasks.module';
     CalendarModule,
     GuardsModule,
     EdustopsModule,
-    TasksModule
+    TasksModule,
+    DatabaseModule
   ],
   controllers: [AppController],
   providers: [AppService],
