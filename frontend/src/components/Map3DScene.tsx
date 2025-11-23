@@ -905,7 +905,7 @@ export const Map3DScene = ({
           <span className="scan-button-3d__cube" aria-hidden>
             <span className="scan-button-3d__cube-face scan-button-3d__cube-face--front">
               <Box className="size-9 drop-shadow-xl" />
-              <span>3D</span>
+              <span>Skan</span>
             </span>
             <span className="scan-button-3d__cube-face scan-button-3d__cube-face--back" />
             <span className="scan-button-3d__cube-face scan-button-3d__cube-face--left" />
