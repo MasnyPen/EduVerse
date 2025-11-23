@@ -4,6 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { createEduStop, searchEduStopsWithinRadius, updateEduStop, deleteEduStop } from "../../api/edustops";
+import { getCurrentPosition } from "../../utils/geolocation";
 import type { Coordinates, EduStopSummary } from "../../types";
 import { haversine } from "../../utils/distance";
 
@@ -208,6 +209,18 @@ const EdustopManagerMap = () => {
       zoom: 12,
       pitch: 0,
     });
+
+    void getCurrentPosition()
+      .then((coords) => {
+        try {
+          instance.setCenter([coords.longitude, coords.latitude]);
+          instance.setZoom(Math.max(instance.getZoom(), 13));
+          void fetchEdustops();
+        } catch (err) {
+          console.warn("Nie udało się ustawić środka mapy na pozycję użytkownika", err);
+        }
+      })
+      .catch(() => {});
 
     instance.addControl(new NavigationControl(), "top-right");
 

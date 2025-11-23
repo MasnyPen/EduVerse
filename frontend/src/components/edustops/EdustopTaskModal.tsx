@@ -120,6 +120,8 @@ const TaskErrorState = ({
   const buttonBg = isLimit ? "bg-yellow-600 hover:bg-yellow-500" : "bg-rose-600 hover:bg-rose-500";
   const buttonText = isLimit ? "Znajdź kolejny EduStop" : "Spróbuj ponownie";
   const onAction = isLimit ? onClose : onRetry;
+  const championMessage = "Gratulacje! Jesteś mistrzem tego EduStopa! Czas na nowe wyzwania.";
+  const isChampionMessage = message?.includes(championMessage);
   return (
     <div
       className={`flex w-full flex-col items-center justify-center gap-4 rounded-3xl border ${bgClass} px-4 md:px-6 py-6 md:py-10 text-center shadow-inner`}
@@ -128,7 +130,7 @@ const TaskErrorState = ({
       <p className={`text-lg font-semibold ${textClass}`}>
         {isLimit ? "Gratulacje! Jesteś mistrzem tego EduStopa! Czas na nowe wyzwania." : message}
       </p>
-      {!isProximityError && (
+      {!isProximityError && !isChampionMessage && (
         <button
           type="button"
           onClick={onAction}
@@ -331,6 +333,10 @@ const EdustopTaskModal: React.FC<EdustopTaskModalProps> = ({
     ) &&
     feedback?.type !== "error";
 
+  const championMessage = "Gratulacje! Jesteś mistrzem tego EduStopa! Czas na nowe wyzwania.";
+  const limitRegex = /limit|Limit|osiągnięto|Osiągnięto|zadania|zadanie/;
+  const isErrorChampion = typeof error === "string" && (limitRegex.test(error) || error.includes(championMessage));
+
   const handleAnswerChange = useCallback((id: string, val: string[]) => {
     setAnswers((prev) => ({ ...prev, [id]: val }));
   }, []);
@@ -395,7 +401,7 @@ const EdustopTaskModal: React.FC<EdustopTaskModalProps> = ({
             </div>
           )}
 
-          {edustop?._id !== "proximity" && (
+          {edustop?._id !== "proximity" && !isErrorChampion && (
             <SubmissionActions
               isSubmitReady={isSubmitReady}
               isSubmitting={isSubmitting}
