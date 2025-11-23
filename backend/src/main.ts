@@ -4,8 +4,23 @@ import { ValidationPipe } from "@nestjs/common";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const rawAllowed = process.env.ALLOWED_ORIGINS ?? "http://localhost:5173";
+  const allowAll = rawAllowed.trim() === "*";
+  const allowedOrigins = allowAll
+    ? []
+    : rawAllowed
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
   app.enableCors({
-    origin: "http://localhost:5173",
+    origin: allowAll
+      ? true
+      : (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+          if (!origin) return callback(null, true);
+          if (allowedOrigins.includes(origin)) return callback(null, true);
+          return callback(new Error("CORS origin blocked"));
+        },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "x-custom-date"],
     credentials: true,
@@ -13,4 +28,8 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
   await app.listen(process.env.PORT ?? 3000);
 }
-void bootstrap();
+
+bootstrap().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
