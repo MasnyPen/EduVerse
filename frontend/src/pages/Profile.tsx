@@ -102,14 +102,14 @@ const Profile = () => {
             </p>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 p-4">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Polubione</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Polubione szkoły</span>
                 <p className="mt-2 flex items-center gap-2 text-xl font-semibold text-slate-800">
                   <Heart className="size-5 text-rose-500" />
                   {likedSchools.length}
                 </p>
               </div>
               <div className="rounded-2xl bg-slate-50 p-4">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Odblokowane</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Odblokowane szkoły</span>
                 <p className="mt-2 flex items-center gap-2 text-xl font-semibold text-slate-800">
                   <Sparkles className="size-5 text-amber-500" />
                   {unlockedSchools.length}

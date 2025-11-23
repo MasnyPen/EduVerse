@@ -735,7 +735,7 @@ const Dashboard = () => {
                   className="w-full"
                   userVoivodeship={userVoivodeship}
                 />
-                <div className="grid gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
                     <span className="text-sm font-medium text-slate-500">Polubione szkoły</span>
                     <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
@@ -755,6 +755,13 @@ const Dashboard = () => {
                     <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
                       <BarChart3 className="size-4 text-sky-500" />
                       {user?.ranking ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                    <span className="text-sm font-medium text-slate-500">Szkoły w pobliżu</span>
+                    <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+                      <School className="size-4 text-emerald-500" />
+                      {schools.length}
                     </span>
                   </div>
                 </div>
@@ -799,28 +806,6 @@ const Dashboard = () => {
                   })}
                 </ul>
               )}
-            </div>
-            <div className="rounded-3xl bg-white p-6 shadow ring-1 ring-black/5">
-              <div className="grid grid-cols-1 gap-3 text-sm font-semibold text-slate-600 sm:grid-cols-2">
-                <div className="flex items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3">
-                  <span className="flex items-center gap-2 text-emerald-600">
-                    <span className="inline-block rounded-full bg-emerald-500/20 px-2 py-0.5">Szkoły</span>
-                  </span>
-                  <span className="flex items-center gap-2 text-lg text-slate-800">
-                    <School className="size-4 text-emerald-500" />
-                    {schools.length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl bg-amber-50 px-4 py-3">
-                  <span className="flex items-center gap-2 text-amber-600">
-                    <span className="inline-block rounded-full bg-amber-500/20 px-2 py-0.5">Odblokowane</span>
-                  </span>
-                  <span className="flex items-center gap-2 text-lg text-slate-800">
-                    <Sparkles className="size-4 text-amber-500" />
-                    {unlockedSchoolIds.size}
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
