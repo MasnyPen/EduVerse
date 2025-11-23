@@ -8,7 +8,7 @@ import {
   type LayerSpecification,
   type StyleSpecification,
 } from "maplibre-gl";
-import { Scan } from "lucide-react";
+import { Box } from "lucide-react";
 import * as THREE from "three";
 import type { Coordinates, EduStopSummary, SchoolSummary } from "../types";
 import { MAP_DEFAULT_ZOOM } from "../utils/constants";
@@ -178,6 +178,7 @@ export const Map3DScene = ({
   const [isScanActive, setIsScanActive] = useState(false);
   const [lastScanTimestamp, setLastScanTimestamp] = useState<number | null>(null);
   const [cooldownRemainingMs, setCooldownRemainingMs] = useState(0);
+  const cubeParticleIds = useMemo(() => Array.from({ length: 6 }, (_, index) => index), []);
 
   const livePosition = userPosition ?? internalPosition;
 
@@ -865,16 +866,14 @@ export const Map3DScene = ({
 
   const isCooldownActive = cooldownRemainingMs > 0;
   const isScanDisabled = !livePosition || isScanActive || isCooldownActive;
-  const scanButtonLabel = isScanActive
-    ? "Skanowanie..."
-    : isCooldownActive
-    ? `Odczekaj ${Math.ceil(cooldownRemainingMs / 1000)} s`
-    : "Skanuj okolice";
+  const scanButtonLabel = "Skanowanie okolicy";
   const scanTooltip = livePosition
-    ? isCooldownActive
-      ? "Skanowanie dostępne co 60 sekund"
-      : "Przeskanuj najbliższe szkoły"
-    : "Oczekiwanie na lokalizację";
+    ? "Uruchom skanowanie najbliższych szkół"
+    : "Oczekiwanie na lokalizację do skanowania";
+  const scanButtonCaption = "Skanowanie okolicy";
+  const scanCooldownInfo = isCooldownActive
+    ? `Następne skanowanie możliwe za ${Math.ceil(cooldownRemainingMs / 1000)} s`
+    : "Następne skanowanie możliwe za 0 s";
 
   return (
     <div className="relative h-full w-full">
@@ -888,18 +887,40 @@ export const Map3DScene = ({
 
       <div className="pointer-events-none absolute inset-0 hidden sm:block sm:rounded-3xl sm:ring-1 sm:ring-black/10" />
 
-      <div className="absolute inset-x-0 bottom-40 z-30 flex flex-col items-center gap-2 px-4 sm:bottom-20 lg:bottom-12">
+      <div className="absolute inset-x-0 bottom-40 z-30 flex flex-col items-center px-4 sm:bottom-20 lg:bottom-12">
         <button
           type="button"
           onClick={handleManualScan}
           disabled={isScanDisabled}
           aria-busy={isScanActive}
+          aria-label={scanButtonLabel}
           title={scanTooltip}
-          className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-sky-500 text-white shadow-[0_18px_30px_-10px_rgba(14,116,144,0.65)] transition hover:-translate-y-1 hover:bg-sky-600 hover:shadow-[0_24px_36px_-12px_rgba(14,116,144,0.6)] focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:shadow-none"
+          className={`scan-button-3d group mb-6 inline-flex h-24 w-24 items-center justify-center focus:outline-none focus-visible:ring-4 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:cursor-not-allowed ${
+            isScanActive ? "scan-button-3d--active" : ""
+          }`}
         >
-          <Scan className={`size-6 ${isScanActive ? "animate-spin" : ""}`} />
+          <span className="scan-button-3d__shadow" aria-hidden />
+          <span className="scan-button-3d__glow" aria-hidden />
+          <span className="scan-button-3d__beams" aria-hidden />
+          <span className="scan-button-3d__cube" aria-hidden>
+            <span className="scan-button-3d__cube-face scan-button-3d__cube-face--front">
+              <Box className="size-9 drop-shadow-xl" />
+              <span>3D</span>
+            </span>
+            <span className="scan-button-3d__cube-face scan-button-3d__cube-face--back" />
+            <span className="scan-button-3d__cube-face scan-button-3d__cube-face--left" />
+            <span className="scan-button-3d__cube-face scan-button-3d__cube-face--right" />
+            <span className="scan-button-3d__cube-face scan-button-3d__cube-face--top" />
+            <span className="scan-button-3d__cube-face scan-button-3d__cube-face--bottom" />
+          </span>
+          {cubeParticleIds.map((id) => (
+            <span key={id} className={`scan-button-3d__particle scan-button-3d__particle--${id + 1}`} aria-hidden />
+          ))}
         </button>
-        <span className="text-sm font-semibold uppercase tracking-wide text-white drop-shadow">{scanButtonLabel}</span>
+        <span className="text-sm font-semibold uppercase tracking-wide text-white drop-shadow">
+          {scanButtonCaption}
+        </span>
+        <span className="text-sm font-bold uppercase tracking-wide text-white drop-shadow-lg">{scanCooldownInfo}</span>
         {isRefreshing && !isScanActive ? (
           <span className="text-xs font-semibold uppercase tracking-wide text-white drop-shadow">
             Aktualizuję dane...

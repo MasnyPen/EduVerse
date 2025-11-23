@@ -390,9 +390,8 @@ const Dashboard = () => {
     if (!coords) {
       return false;
     }
-    const startedSchools = await fetchSchools(coords);
-    const startedEdustops = await fetchEduStops(coords);
-    return startedSchools || startedEdustops;
+    const [schoolsRefreshed, edustopsRefreshed] = await Promise.all([fetchSchools(coords), fetchEduStops(coords)]);
+    return schoolsRefreshed || edustopsRefreshed;
   }, [fetchEduStops, fetchSchools, userPosition]);
 
   const loadEduStopTask = useCallback(async (stopId: string) => {

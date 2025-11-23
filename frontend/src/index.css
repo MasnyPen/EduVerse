@@ -364,3 +364,254 @@ button {
 .markdown-content .katex {
   font-size: 1rem;
 }
+
+.scan-button-3d {
+  --cube-size: 84px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  perspective: 1200px;
+  transform-style: preserve-3d;
+  transition: transform 0.25s ease;
+}
+
+.scan-button-3d:disabled {
+  filter: saturate(0.4) brightness(0.9);
+}
+
+.scan-button-3d__shadow {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -36px;
+  height: 42px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(15, 23, 42, 0.4), rgba(15, 23, 42, 0));
+  transform: translateZ(-60px);
+  filter: blur(12px);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.scan-button-3d__glow {
+  position: absolute;
+  inset: -18px;
+  border-radius: 24px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.45), rgba(14, 116, 144, 0));
+  filter: blur(18px);
+  opacity: 0.9;
+  animation: scan-button-glow 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.scan-button-3d__beams {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: conic-gradient(from 120deg, rgba(59, 130, 246, 0.35), rgba(14, 116, 144, 0.05), rgba(59, 130, 246, 0.35));
+  transform: rotateX(-32deg) rotateY(-58deg) translateY(-12px) scale(1.06);
+  filter: blur(12px);
+  opacity: 0.65;
+  animation: scan-button-beams 6s linear infinite;
+  pointer-events: none;
+}
+
+.scan-button-3d__cube {
+  position: relative;
+  height: var(--cube-size);
+  transform-style: preserve-3d;
+  transform: rotateX(-22deg) rotateY(-36deg) translateY(-6px);
+  transition: transform 0.45s ease, filter 0.35s ease;
+}
+
+.scan-button-3d:hover:not(:disabled) .scan-button-3d__cube {
+  transform: rotateX(-32deg) rotateY(-52deg) translateY(-12px) scale(1.06);
+}
+
+.scan-button-3d:active:not(:disabled) .scan-button-3d__cube {
+  transform: rotateX(-18deg) rotateY(-30deg) translateY(-4px) scale(0.98);
+}
+
+.scan-button-3d:hover:not(:disabled) .scan-button-3d__cube-face--front {
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.95), rgba(14, 165, 233, 0.85));
+  color: #f8fafc;
+}
+
+.scan-button-3d:hover:not(:disabled) .scan-button-3d__cube-face--right {
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.9), rgba(59, 130, 246, 0.85));
+}
+
+.scan-button-3d:hover:not(:disabled) .scan-button-3d__cube-face--top {
+  background: linear-gradient(180deg, rgba(224, 242, 254, 0.65), rgba(96, 165, 250, 0.85));
+}
+
+.scan-button-3d--active .scan-button-3d__cube {
+  animation: scan-cube-rotate 2.8s linear infinite;
+}
+
+.scan-button-3d__cube-face {
+  position: absolute;
+  inset: 0;
+  width: var(--cube-size);
+  height: var(--cube-size);
+  border: 2px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  background: linear-gradient(155deg, rgba(30, 64, 175, 0.95), rgba(15, 118, 184, 0.8));
+  box-shadow: inset 0 0 24px rgba(255, 255, 255, 0.06);
+  opacity: 0.96;
+  backface-visibility: visible;
+}
+
+.scan-button-3d__cube-face--front {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  color: #e0f2fe;
+  text-shadow: 0 10px 25px rgba(2, 6, 23, 0.85);
+  font-weight: 800;
+  letter-spacing: 0.4em;
+  transform: translateZ(calc(var(--cube-size) / 2));
+}
+
+.scan-button-3d__cube-face--front span {
+  font-size: 0.65rem;
+}
+
+.scan-button-3d__cube-face--front svg {
+  color: #bae6fd;
+}
+
+.scan-button-3d__cube-face--back {
+  transform: rotateY(180deg) translateZ(calc(var(--cube-size) / 2));
+  background: linear-gradient(155deg, rgba(15, 23, 42, 0.9), rgba(30, 64, 175, 0.7));
+}
+
+.scan-button-3d__cube-face--left {
+  transform: rotateY(-90deg) translateZ(calc(var(--cube-size) / 2));
+  background: linear-gradient(180deg, rgba(14, 165, 233, 0.85), rgba(14, 116, 144, 0.8));
+}
+
+.scan-button-3d__cube-face--right {
+  transform: rotateY(90deg) translateZ(calc(var(--cube-size) / 2));
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.85), rgba(37, 99, 235, 0.8));
+}
+
+.scan-button-3d__cube-face--top {
+  transform: rotateX(90deg) translateZ(calc(var(--cube-size) / 2));
+  background: linear-gradient(180deg, rgba(191, 219, 254, 0.65), rgba(59, 130, 246, 0.75));
+}
+
+.scan-button-3d__cube-face--bottom {
+  transform: rotateX(-90deg) translateZ(calc(var(--cube-size) / 2));
+  background: linear-gradient(180deg, rgba(2, 6, 23, 0.95), rgba(15, 23, 42, 0.85));
+}
+
+.scan-button-3d:disabled .scan-button-3d__cube-face {
+  opacity: 0.65;
+}
+
+.scan-button-3d__particle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(125, 211, 252, 1), rgba(59, 130, 246, 0));
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.6);
+  animation: scan-particle-float 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.scan-button-3d__particle--1 {
+  top: 10%;
+  right: 18%;
+  animation-delay: 0s;
+}
+
+.scan-button-3d__particle--2 {
+  top: 30%;
+  left: 12%;
+  width: 12px;
+  height: 12px;
+  animation-delay: 0.4s;
+}
+
+.scan-button-3d__particle--3 {
+  bottom: 18%;
+  right: 28%;
+  animation-delay: 0.8s;
+}
+
+.scan-button-3d__particle--4 {
+  bottom: 8%;
+  left: 22%;
+  animation-delay: 1.2s;
+}
+
+.scan-button-3d__particle--5 {
+  top: 18%;
+  left: 40%;
+  animation-delay: 1.6s;
+}
+
+.scan-button-3d__particle--6 {
+  bottom: 28%;
+  right: 6%;
+  animation-delay: 2s;
+}
+
+@keyframes scan-cube-rotate {
+  0% {
+    transform: rotateX(-22deg) rotateY(-36deg) translateY(-6px);
+  }
+  50% {
+    transform: rotateX(-22deg) rotateY(-216deg) translateY(-6px);
+  }
+  100% {
+    transform: rotateX(-22deg) rotateY(-396deg) translateY(-6px);
+  }
+}
+
+@keyframes scan-button-glow {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0.8;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes scan-button-beams {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scan-particle-float {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(4px, -10px, 0) scale(1.25);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(-2px, -20px, 0) scale(0.9);
+    opacity: 0.4;
+  }
+}
