@@ -7,7 +7,7 @@ import { UsersModule } from 'src/users/users.module';
 import { DatabaseModule } from 'src/database/database.module';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, UsersModule],
   providers: [CommentsService],
   controllers: [CommentsController]
 })

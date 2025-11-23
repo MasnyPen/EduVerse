@@ -52,7 +52,8 @@ import { DatabaseModule } from './database/database.module';
     GuardsModule,
     EdustopsModule,
     TasksModule,
-    DatabaseModule
+    DatabaseModule,
+    CommentsModule
   ],
   controllers: [AppController],
   providers: [AppService],
