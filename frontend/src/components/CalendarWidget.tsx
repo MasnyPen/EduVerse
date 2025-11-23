@@ -1,5 +1,5 @@
 import { type MouseEventHandler } from "react";
-import { CalendarDays, ChevronRight, Loader2, RefreshCcw } from "lucide-react";
+import { CalendarDays, ChevronRight, Globe2, Loader2, MapPin, RefreshCcw } from "lucide-react";
 import type { CalendarDaySchedule } from "../types";
 import { formatAcademicYearLabel, getAcademicYearFromIsoDate } from "../utils/calendar";
 
@@ -51,12 +51,12 @@ const CalendarWidget = ({
   return (
     <button type="button" onClick={onOpen} className={className ? `${baseClass} ${className}` : baseClass}>
       <div className="flex items-center gap-3">
-        <div className="flex flex-col items-center justify-center rounded-xl bg-sky-500 px-3 py-2 text-white">
+        <div className="flex flex-col items-center justify-center rounded-xl bg-linear-to-r from-sky-200 to-sky-100 px-3 py-2 text-gray-900">
           <span className="text-xs font-semibold uppercase tracking-wide">{dayName}</span>
           <span className="text-2xl font-bold leading-none">{dayNumber}</span>
         </div>
         <div className="flex flex-col items-start text-left">
-          <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-400">
+          <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-800">
             <CalendarDays className="size-3" />
             <span>Nadchodzące wydarzenie</span>
           </div>
@@ -85,27 +85,29 @@ const CalendarWidget = ({
               <p className="text-sm font-semibold text-slate-800">{mainTitle}</p>
               <p className="text-xs text-slate-500">{formattedDate}</p>
               {academicYearLabel ? (
-                <p className="text-[11px] font-semibold tracking-wide text-slate-400">
+                <p className="text-[11px] font-semibold tracking-wide text-slate-800">
                   Rok szkolny {academicYearLabel}
                 </p>
               ) : null}
               {coversAllVoivodeships ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-sky-600">
+                <span className="inline-flex items-center gap-1 rounded-full bg-linear-to-r from-sky-200 to-sky-100 px-1 py-0.5 text-[10px] font-semibold tracking-wide text-gray-900">
+                  <Globe2 className="size-2.5" />
                   <span>Wszystkie województwa</span>
                 </span>
               ) : coversUserVoivodeship ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-emerald-600">
+                <span className="inline-flex items-center gap-1 rounded-full bg-linear-to-r from-sky-200 to-sky-100 px-1 py-0.5 text-[10px] font-semibold tracking-wide text-gray-900">
+                  <MapPin className="size-2.5" />
                   <span>Dotyczy Twojego województwa</span>
                 </span>
               ) : null}
               {todayTitle && !upcomingDay?.isToday ? (
-                <p className="text-[11px] text-slate-400">Dzisiejsze wydarzenie: {todayTitle}</p>
+                <p className="text-[11px] text-slate-800">Dzisiejsze wydarzenie: {todayTitle}</p>
               ) : null}
             </div>
           )}
         </div>
       </div>
-      <ChevronRight className="size-4 text-slate-400 transition group-hover:text-sky-500" />
+      <ChevronRight className="size-4 text-slate-800 transition group-hover:text-sky-500" />
     </button>
   );
 };

@@ -51,6 +51,7 @@ const MarkdownContent = ({ content, className = "", inline = false }: MarkdownCo
   return (
     <ReactMarkdown
       className={baseClassName}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       remarkPlugins={[remarkBreaks as any, remarkGfm as any, remarkMath as any]}
       rehypePlugins={[rehypeRaw, rehypeKatex]}
       components={inline ? inlineComponents : baseComponents}

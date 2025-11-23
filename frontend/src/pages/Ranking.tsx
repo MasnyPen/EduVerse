@@ -195,11 +195,11 @@ const Ranking = () => {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h1 className="flex items-center gap-2 text-2xl font-semibold text-slate-800">
-                <Users className="size-6 text-slate-400" aria-hidden="true" />
+                <Users className="size-6 text-slate-800" aria-hidden="true" />
                 Ranking EduVerse
               </h1>
               <p className="mt-1 flex items-center gap-2 text-sm text-slate-500">
-                <Target className="size-4 text-slate-400" aria-hidden="true" />
+                <Target className="size-4 text-slate-800" aria-hidden="true" />
                 Lista najlepszych odkrywców i ich aktualne wyniki.
               </p>
             </div>
@@ -248,7 +248,7 @@ const Ranking = () => {
                   <span className="font-semibold text-slate-700">#{viewerPosition}</span>
                   <span>· Punkty:</span>
                   <span className="font-semibold text-slate-700">{viewerPointsFromProfile ?? "-"}</span>
-                  <span className="text-xs font-medium text-slate-400">(poza widoczną listą)</span>
+                  <span className="text-xs font-medium text-slate-800">(poza widoczną listą)</span>
                 </div>
               ) : null}
               {isAuthLoading && !user ? (

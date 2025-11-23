@@ -353,7 +353,7 @@ const EdustopManagerMap = () => {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">Panel Edustopów</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-slate-800">Panel Edustopów</p>
           <h3 className="text-2xl font-bold text-slate-800">Zarządzaj i dodawaj Edustopy</h3>
           <p className="text-sm text-slate-500">Kliknij na mapie, aby utworzyć nowy punkt i przypisać mu nazwę.</p>
         </div>

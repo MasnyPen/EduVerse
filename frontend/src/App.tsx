@@ -1,5 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { setCanonicalToCurrent } from "./utils/canonical";
 import { useUserStore } from "./store/userStore";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
@@ -50,6 +51,7 @@ const App = () => {
 
   return (
     <BrowserRouter>
+      <CanonicalUpdater />
       <AuthOverlay />
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -62,5 +64,17 @@ const App = () => {
     </BrowserRouter>
   );
 };
+
+function CanonicalUpdater() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const origin = typeof globalThis !== "undefined" && globalThis.location ? globalThis.location.origin : "";
+    const href = `${origin}${location.pathname}${location.search}`;
+    setCanonicalToCurrent(href);
+  }, [location]);
+
+  return null;
+}
 
 export default App;

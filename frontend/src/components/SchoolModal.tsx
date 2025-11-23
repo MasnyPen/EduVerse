@@ -124,7 +124,7 @@ const SchoolModalContent = ({
 
     if (isLoadingDetails) {
       return (
-        <div className="flex flex-1 items-center justify-center text-slate-400">
+        <div className="flex flex-1 items-center justify-center text-slate-800">
           <Loader2 className="size-6 animate-spin" />
         </div>
       );
@@ -305,7 +305,7 @@ const SchoolModalContent = ({
     if (website) {
       additionalInfo.push(
         <div key="website" className="flex items-center gap-2">
-          <Globe className="size-4 text-slate-400" />
+          <Globe className="size-4 text-slate-800" />
           <a
             href={website}
             target="_blank"
@@ -320,7 +320,7 @@ const SchoolModalContent = ({
     if (details?.paid !== undefined) {
       additionalInfo.push(
         <div key="paid" className="flex items-center gap-2">
-          <DollarSign className="size-4 text-slate-400" />
+          <DollarSign className="size-4 text-slate-800" />
           <span className="text-sm text-slate-600">{details.paid ? "Płatne/Niepubliczne" : "Bezpłatne/Publiczne"}</span>
         </div>
       );
@@ -328,7 +328,7 @@ const SchoolModalContent = ({
     if (details?.likes !== undefined) {
       additionalInfo.push(
         <div key="likes" className="flex items-center gap-2">
-          <Users className="size-4 text-slate-400" />
+          <Users className="size-4 text-slate-800" />
           <span className="text-sm text-slate-600">{details.likes} polubień</span>
         </div>
       );
@@ -389,7 +389,7 @@ const SchoolModalContent = ({
         {tiles.length > 0 ? (
           <div className="grid gap-4">{tiles}</div>
         ) : (
-          <div className="text-sm text-slate-400">Brak dodatkowych informacji o tej szkole.</div>
+          <div className="text-sm text-slate-800">Brak dodatkowych informacji o tej szkole.</div>
         )}
       </div>
     );
@@ -414,7 +414,7 @@ const SchoolModalContent = ({
     return (
       <div className="flex-1 space-y-3 overflow-y-auto p-3 pr-2 text-sm sm:p-4 sm:pr-3">
         {opinions.length === 0 ? (
-          <p className="text-slate-400">Brak opinii. Bądź pierwszą osobą, która ją doda!</p>
+          <p className="text-slate-800">Brak opinii. Bądź pierwszą osobą, która ją doda!</p>
         ) : (
           opinions.map((opinion, index) => (
             <div key={`${opinion._id}-${index}`} className="rounded-2xl bg-white p-3 shadow">
@@ -423,7 +423,7 @@ const SchoolModalContent = ({
                   <User className="size-4 text-slate-500" />
                   <span className="text-sm font-semibold text-slate-700">{opinion.userName}</span>
                 </div>
-                <span className="text-xs text-slate-400">{new Date(opinion.createdAt).toLocaleString()}</span>
+                <span className="text-xs text-slate-800">{new Date(opinion.createdAt).toLocaleString()}</span>
               </div>
               <div className="flex items-center gap-1 mt-1">
                 {Array.from({ length: 5 }, (_, i) => (
@@ -576,7 +576,7 @@ const SchoolModalContent = ({
                     <button
                       onClick={onSubmitComment}
                       disabled={isBusy || commentDraft.trim().length === 0}
-                      className="flex items-center gap-2 rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-sky-300"
+                      className="flex items-center gap-2 rounded-full bg-sky-200 px-4 py-2 text-sm font-semibold text-gray-900 transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:bg-sky-100"
                     >
                       {isBusy ? <Loader2 className="size-4 animate-spin" /> : <MessageCircle className="size-4" />}
                       {editingOpinionId ? "Zapisz zmiany" : "Dodaj opinię"}

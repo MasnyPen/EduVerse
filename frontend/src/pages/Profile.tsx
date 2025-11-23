@@ -102,14 +102,14 @@ const Profile = () => {
             </p>
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 p-4">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Polubione szkoły</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-800">Polubione szkoły</span>
                 <p className="mt-2 flex items-center gap-2 text-xl font-semibold text-slate-800">
                   <Heart className="size-5 text-rose-500" />
                   {likedSchools.length}
                 </p>
               </div>
               <div className="rounded-2xl bg-slate-50 p-4">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Odblokowane szkoły</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-800">Odblokowane szkoły</span>
                 <p className="mt-2 flex items-center gap-2 text-xl font-semibold text-slate-800">
                   <Sparkles className="size-5 text-amber-500" />
                   {unlockedSchools.length}
@@ -183,7 +183,7 @@ const Profile = () => {
                         className={`flex w-full items-center gap-2 rounded-2xl px-4 py-3 text-left transition ${
                           isUnlocked
                             ? "bg-slate-50 text-slate-700 hover:bg-slate-100"
-                            : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                            : "bg-slate-100 text-slate-800 cursor-not-allowed"
                         }`}
                         disabled={!isUnlocked}
                       >

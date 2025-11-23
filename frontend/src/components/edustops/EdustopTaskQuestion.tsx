@@ -205,7 +205,7 @@ const EdustopTaskQuestion = ({
     <section className="rounded-3xl border border-slate-100 bg-white/90 p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Zadanie {index + 1}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-800">Zadanie {index + 1}</p>
           {question.content ? (
             <MarkdownContent
               content={renderMath(question.content)}
@@ -222,7 +222,7 @@ const EdustopTaskQuestion = ({
       </div>
       {renderContent()}
       {question.options?.length === 0 ? (
-        <p className="mt-3 text-xs text-slate-400">Brak sugerowanych opcji — odpowiedz własnymi słowami.</p>
+        <p className="mt-3 text-xs text-slate-800">Brak sugerowanych opcji — odpowiedz własnymi słowami.</p>
       ) : null}
     </section>
   );

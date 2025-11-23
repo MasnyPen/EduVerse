@@ -139,19 +139,19 @@ const CalendarTimeline = ({
                     })()}
                     <div className="flex flex-wrap items-center gap-2 md:justify-end">
                       {slot.hasAllVoivodeships ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-sky-600">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-linear-to-r from-sky-200 to-sky-100 px-1.5 py-0.5 text-xs font-semibold tracking-wide text-gray-900">
                           <Globe2 className="size-3" />
                           Wszystkie
                         </span>
                       ) : matchesHighlightedVoivodeship(slot) ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-emerald-600">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-linear-to-r from-sky-200 to-sky-100 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-gray-900">
                           <MapPin className="size-3" />
                           Twoje województwo
                         </span>
                       ) : null}
                       {slot.voivodeships && slot.voivodeships.length > 0 ? (
                         slot.hasAllVoivodeships ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-semibold tracking-wide text-sky-600">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-linear-to-r from-sky-200 to-sky-100 px-1.5 py-0.5 text-[11px] font-semibold tracking-wide text-gray-900">
                             <Globe2 className="size-3" />
                             Wszystkie województwa
                           </span>
@@ -162,10 +162,10 @@ const CalendarTimeline = ({
                             return (
                               <span
                                 key={`${slot.id}-${name}`}
-                                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium ${
                                   isHighlightedVoivodeship
-                                    ? "bg-emerald-500/10 text-emerald-600"
-                                    : "bg-slate-200/60 text-slate-600"
+                                    ? "bg-linear-to-r from-sky-200 to-sky-100 text-gray-900"
+                                    : "bg-sky-100 text-slate-800"
                                 }`}
                               >
                                 <MapPin className="size-3" />

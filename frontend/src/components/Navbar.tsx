@@ -94,7 +94,7 @@ const Navbar = () => {
         {user ? (
           <button
             onClick={handleLogout}
-            className="hidden items-center gap-2 rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-600 lg:flex"
+            className="hidden items-center gap-2 rounded-full bg-slate-800 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-slate-700 lg:flex"
           >
             <LogOut className="size-4" />
             Wyloguj
@@ -114,11 +114,11 @@ const Navbar = () => {
           <aside className="relative mt-4 w-[90%] max-w-md rounded-3xl bg-white/95 p-6 shadow-2xl ring-1 ring-slate-200 backdrop-blur-xl animate-[fadeInUp_0.25s_ease-out]">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500 text-white font-semibold shadow-md">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-200 text-gray-900 font-semibold shadow-md">
                   {userInitial}
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-slate-400">{user ? "Zalogowany jako" : "Witaj w EduVerse"}</span>
+                  <span className="text-xs text-slate-800">{user ? "Zalogowany jako" : "Witaj w EduVerse"}</span>
                   <span className="text-sm font-semibold text-slate-900">{displayName}</span>
                 </div>
               </div>
@@ -142,7 +142,7 @@ const Navbar = () => {
                       active ? "bg-sky-50 text-sky-700 shadow-sm" : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
-                    <Icon className={`size-5 ${active ? "text-sky-600" : "text-slate-400"}`} />
+                    <Icon className={`size-5 ${active ? "text-sky-600" : "text-slate-800"}`} />
                     {label}
                   </Link>
                 );
@@ -152,7 +152,7 @@ const Navbar = () => {
             {user ? (
               <button
                 onClick={handleLogout}
-                className="mt-5 flex items-center justify-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="mt-5 flex items-center justify-center gap-2 rounded-full bg-slate-800 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
               >
                 <LogOut className="size-5" />
                 Wyloguj się
@@ -161,7 +161,7 @@ const Navbar = () => {
               <p className="mt-5 text-center text-sm text-slate-500">Zaloguj się poprzez wyświetlony modal.</p>
             )}
 
-            <p className="mt-4 text-center text-xs text-slate-400">EduVerse • Twoja mapa edukacyjnych odkryć</p>
+            <p className="mt-4 text-center text-xs text-slate-800">EduVerse • Twoja mapa edukacyjnych odkryć</p>
           </aside>
         </div>
       )}

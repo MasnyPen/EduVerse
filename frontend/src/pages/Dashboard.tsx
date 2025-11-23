@@ -796,7 +796,7 @@ const Dashboard = () => {
                               </p>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-slate-400">
+                          <div className="flex items-center gap-2 text-slate-800">
                             {isLiked ? <Heart className="size-4 text-rose-500" /> : null}
                             {isUnlocked ? <Sparkles className="size-4 text-amber-500" /> : null}
                           </div>
