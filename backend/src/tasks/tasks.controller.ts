@@ -11,7 +11,7 @@ import {
 import { TasksService } from './tasks.service';
 import { JwtAuthGuard } from 'src/auth/jwt-guard.guard';
 
-@Controller('edustop')
+@Controller('tasks')
 export class TasksController {
   constructor(private readonly taskService: TasksService) {}
 
@@ -26,9 +26,8 @@ export class TasksController {
   @UseGuards(JwtAuthGuard)
   async verify(
     @Query('accessToken') accessToken: string,
-    @Body() result: any,
     @Request() req
   ) {
-    return this.taskService.verifyTaskResult(accessToken, result, req.user.userId);
+    return this.taskService.verifyTaskResult(accessToken, req.body, req.user.userId);
   }
 }

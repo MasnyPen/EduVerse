@@ -6,7 +6,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { EduStop } from 'src/database/EduStop';
 import { Task, Question } from 'src/database/Task';
 import { v4 as uuidv4 } from 'uuid';
@@ -56,7 +56,9 @@ export class TasksService {
         createdAt: new Date(),
         questions: task.questions,
       },
-      this.INTERVAL_MINUTES * 60,
+      {
+        ttl: this.INTERVAL_MINUTES * 60,
+      } as any,
     );
 
     return {
@@ -86,7 +88,9 @@ export class TasksService {
     let allCorrect = true;
 
     for (const question of questions as Question[]) {
-      const userAnswer = userAnswers.find(u => u.questionId === question.questionId);
+
+      const questionId = (question as any)._id.toString();
+      const userAnswer = userAnswers.find(u => u.questionId === questionId);
 
       if (!userAnswer) {
         allCorrect = false;
@@ -98,6 +102,7 @@ export class TasksService {
         break;
       }
     }
+
 
     await this.cacheManager.del(redisKey);
 
