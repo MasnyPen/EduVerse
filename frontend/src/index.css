@@ -615,3 +615,19 @@ button {
     opacity: 0.4;
   }
 }
+
+@media (max-width: 640px) {
+  .scan-button-3d {
+    --cube-size: 58px;
+  }
+  .scan-button-3d__cube-face--front span {
+    font-size: 0.55rem;
+  }
+  .scan-button-3d__cube-face--front {
+    letter-spacing: 0.25em;
+  }
+  .scan-button-3d__particle {
+    width: 8px;
+    height: 8px;
+  }
+}
