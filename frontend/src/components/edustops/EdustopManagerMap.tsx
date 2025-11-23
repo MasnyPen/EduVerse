@@ -1,9 +1,9 @@
-import { Loader2, MapPinPlus, RefreshCcw } from "lucide-react";
+import { Loader2, MapPinPlus, RefreshCcw, Edit, Trash2 } from "lucide-react";
 import { Map as MapLibreMap, Marker, NavigationControl, type MapMouseEvent } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { createEduStop, searchEduStopsWithinRadius } from "../../api/edustops";
+import { createEduStop, searchEduStopsWithinRadius, updateEduStop, deleteEduStop } from "../../api/edustops";
 import type { Coordinates, EduStopSummary } from "../../types";
 import { haversine } from "../../utils/distance";
 
@@ -97,6 +97,10 @@ const EdustopManagerMap = () => {
   const [formCoords, setFormCoords] = useState<Coordinates | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusMessage | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [editingCoords, setEditingCoords] = useState<Coordinates | null>(null);
+  const [editingError, setEditingError] = useState<string | null>(null);
 
   const placePendingMarker = useCallback((coords: Coordinates) => {
     const map = mapRef.current;
@@ -278,6 +282,63 @@ const EdustopManagerMap = () => {
     hidePendingMarker();
   }, [hidePendingMarker]);
 
+  const handleEdit = useCallback((stop: EduStopSummary) => {
+    setEditingId(stop._id);
+    setEditingName(stop.name);
+    setEditingCoords(stop.coordinates);
+    setEditingError(null);
+  }, []);
+
+  const handleEditSubmit = useCallback(async () => {
+    if (!editingId || !editingCoords) {
+      return;
+    }
+    const trimmed = editingName.trim();
+    if (trimmed.length < 3) {
+      setEditingError("Nazwa musi mieć co najmniej 3 znaki.");
+      return;
+    }
+    try {
+      await updateEduStop(editingId, {
+        name: trimmed,
+        latitude: editingCoords.latitude,
+        longitude: editingCoords.longitude,
+      });
+      setStatus({ type: "success", message: "Edustop został zaktualizowany." });
+      setEditingId(null);
+      setEditingName("");
+      setEditingCoords(null);
+      await fetchEdustops();
+    } catch (error) {
+      console.error("Nie udało się zaktualizować Edustopa", error);
+      setEditingError("Nie udało się zaktualizować Edustopa. Spróbuj ponownie.");
+    }
+  }, [editingId, editingCoords, editingName, fetchEdustops]);
+
+  const handleEditCancel = useCallback(() => {
+    setEditingId(null);
+    setEditingName("");
+    setEditingCoords(null);
+    setEditingError(null);
+  }, []);
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      if (!confirm("Czy na pewno chcesz usunąć ten Edustop?")) {
+        return;
+      }
+      try {
+        await deleteEduStop(id);
+        setStatus({ type: "success", message: "Edustop został usunięty." });
+        await fetchEdustops();
+      } catch (error) {
+        console.error("Nie udało się usunąć Edustopa", error);
+        setStatus({ type: "error", message: "Nie udało się usunąć Edustopa." });
+      }
+    },
+    [fetchEdustops]
+  );
+
   const headerLabel = useMemo(() => {
     if (isLoading && edustops.length === 0) {
       return "Ładuję mapę...";
@@ -372,16 +433,78 @@ const EdustopManagerMap = () => {
         </div>
       ) : null}
 
+      {editingId ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <Edit className="size-5 text-amber-500" />
+            <h4 className="text-base font-semibold text-slate-700">Edytuj Edustop</h4>
+          </div>
+          {editingCoords && (
+            <p className="text-sm text-slate-500">
+              Pozycja: {editingCoords.latitude.toFixed(5)}, {editingCoords.longitude.toFixed(5)}
+            </p>
+          )}
+          <label className="mt-3 block text-sm font-medium text-slate-600" htmlFor="edit-edustop-name">
+            Nazwa Edustopa
+          </label>
+          <input
+            id="edit-edustop-name"
+            type="text"
+            value={editingName}
+            onChange={(event) => setEditingName(event.target.value)}
+            placeholder="np. Punkt zadań przy rynku"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-slate-700 placeholder-slate-400 focus:border-amber-400 focus:bg-white focus:outline-none"
+          />
+          {editingError ? <p className="mt-2 text-sm text-rose-600">{editingError}</p> : null}
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              className="inline-flex flex-1 items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-white shadow hover:bg-amber-500"
+              onClick={handleEditSubmit}
+            >
+              Zaktualizuj
+            </button>
+            <button
+              type="button"
+              className="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-200 px-4 py-2 text-slate-600 hover:bg-slate-50"
+              onClick={handleEditCancel}
+            >
+              Anuluj
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {edustops.length > 0 ? (
         <div className="space-y-2">
           <h5 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Ostatnio pobrane</h5>
           <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
             {edustops.slice(0, 8).map((stop) => (
               <li key={stop._id} className="rounded-2xl border border-slate-100 bg-white px-4 py-2 shadow-sm">
-                <p className="text-sm font-semibold text-slate-700">{stop.name}</p>
-                <p className="text-xs text-slate-500">
-                  {stop.coordinates.latitude.toFixed(4)}, {stop.coordinates.longitude.toFixed(4)}
-                </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">{stop.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {stop.coordinates.latitude.toFixed(4)}, {stop.coordinates.longitude.toFixed(4)}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(stop)}
+                      className="p-1 text-slate-500 hover:text-sky-500 transition-colors"
+                      title="Edytuj"
+                    >
+                      <Edit className="size-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(stop._id)}
+                      className="p-1 text-slate-500 hover:text-rose-500 transition-colors"
+                      title="Usuń"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>
