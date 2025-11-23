@@ -2,15 +2,7 @@ import axios, { type AxiosError, type AxiosResponse, type InternalAxiosRequestCo
 import { AUTH_TOKEN_KEY } from "../utils/constants";
 
 const resolveBaseUrl = () => {
-  try {
-    const meta = import.meta as ImportMeta & {
-      env?: Record<string, string | undefined>;
-    };
-    return meta.env?.VITE_API_URL ?? "http://localhost:3000";
-  } catch (error) {
-    console.warn("Falling back to default API URL", error);
-    return "http://localhost:3000";
-  }
+  return import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 };
 
 const api = axios.create({
