@@ -144,7 +144,7 @@ export class TasksService {
     await this.cacheManager.set(
       redisKey,
       current,
-      this.INTERVAL_MINUTES * 60,
+      { ttl: this.INTERVAL_MINUTES * 60 } as any,
     );
   }
 
