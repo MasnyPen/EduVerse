@@ -9,7 +9,8 @@ import {
   type StyleSpecification,
 } from "maplibre-gl";
 import { Scan } from "lucide-react";
-import type { Coordinates, SchoolSummary } from "../types";
+import * as THREE from "three";
+import type { Coordinates, EduStopSummary, SchoolSummary } from "../types";
 import { MAP_DEFAULT_ZOOM } from "../utils/constants";
 import { haversine } from "../utils/distance";
 import { watchUserPosition } from "../utils/geolocation";
@@ -23,6 +24,8 @@ interface Map3DSceneProps {
   likedSchoolIds: Set<string>;
   onScan?: () => Promise<boolean | void> | boolean | void;
   isRefreshing?: boolean;
+  edustops?: EduStopSummary[];
+  onSelectEduStop?: (stop: EduStopSummary) => void;
 }
 
 type MarkerRecord = {
@@ -30,6 +33,12 @@ type MarkerRecord = {
   element: HTMLButtonElement;
   logoEl: HTMLImageElement;
   school: SchoolSummary;
+};
+
+type EdustopMarkerRecord = {
+  marker: Marker;
+  element: HTMLElement;
+  edustop: EduStopSummary;
 };
 
 type MarkerVisualState = {
@@ -143,10 +152,13 @@ export const Map3DScene = ({
   likedSchoolIds,
   onScan,
   isRefreshing = false,
+  edustops = [],
+  onSelectEduStop,
 }: Map3DSceneProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerStoreRef = useRef<Map<string, MarkerRecord>>(new Map());
+  const edustopMarkerStoreRef = useRef<Map<string, EdustopMarkerRecord>>(new Map());
   const markerStateRef = useRef<Map<string, MarkerVisualState>>(new Map());
   const logoCacheRef = useRef<Map<string, string>>(new Map());
   const userMarkerRef = useRef<Marker | null>(null);
@@ -264,6 +276,10 @@ export const Map3DScene = ({
       const scale = computeMarkerScale(null, Boolean(state?.isUnlocked));
       record.element.style.setProperty("--marker-scale", scale.toFixed(3));
     }
+    for (const record of edustopMarkerStoreRef.current.values()) {
+      const scale = computeMarkerScale(null, true);
+      record.element.style.setProperty("--marker-scale", scale.toFixed(3));
+    }
   }, []);
 
   const updateMarkersForPosition = useCallback((position: Coordinates) => {
@@ -271,6 +287,15 @@ export const Map3DScene = ({
       const state = markerStateRef.current.get(id);
       const distance = haversine(position, record.school.coordinates);
       const scale = computeMarkerScale(distance, Boolean(state?.isUnlocked));
+      record.element.style.setProperty("--marker-scale", scale.toFixed(3));
+      record.element.dataset.distanceMeters = distance.toFixed(1);
+    }
+  }, []);
+
+  const updateEdustopMarkersForPosition = useCallback((position: Coordinates) => {
+    for (const record of edustopMarkerStoreRef.current.values()) {
+      const distance = haversine(position, record.edustop.coordinates);
+      const scale = computeMarkerScale(distance, true);
       record.element.style.setProperty("--marker-scale", scale.toFixed(3));
       record.element.dataset.distanceMeters = distance.toFixed(1);
     }
@@ -473,12 +498,72 @@ export const Map3DScene = ({
     [onSelectSchool, setMarkerLogo]
   );
 
+  const createTaskIcon = (): HTMLCanvasElement => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    canvas.className = "edustop-task-marker";
+
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+    renderer.setSize(64, 64);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+    camera.position.set(4, 4, 4);
+    camera.lookAt(0, 0, 0);
+    const notebookGeometry = new THREE.BoxGeometry(3, 0.3, 2.25);
+    const notebookMaterial = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
+    const notebook = new THREE.Mesh(notebookGeometry, notebookMaterial);
+    notebook.position.set(0, 0, 0);
+    scene.add(notebook);
+
+    const penGeometry = new THREE.CylinderGeometry(0.15, 0.15, 3, 8);
+    const penMaterial = new THREE.MeshLambertMaterial({ color: 0x000000 });
+    const pen = new THREE.Mesh(penGeometry, penMaterial);
+    pen.position.set(1.8, 1.5, 0);
+    pen.rotation.z = Math.PI / 4;
+    scene.add(pen);
+
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(1, 1, 1);
+    scene.add(light);
+
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+
+    renderer.render(scene, camera);
+    return canvas;
+  };
+
+  const createEdustopMarker = useCallback(
+    (map: MapLibreMap, stop: EduStopSummary): EdustopMarkerRecord => {
+      const element = createTaskIcon();
+      element.title = stop.name;
+
+      element.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onSelectEduStop?.(stop);
+      });
+
+      const marker = new Marker({
+        element,
+        anchor: "bottom",
+        pitchAlignment: "map",
+        rotationAlignment: "map",
+      })
+        .setLngLat([stop.coordinates.longitude, stop.coordinates.latitude])
+        .addTo(map);
+
+      return { marker, element, edustop: stop };
+    },
+    [onSelectEduStop]
+  );
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
     const container = containerRef.current;
 
-    // Jeśli kontener nie ma wysokości, ustawiamy na wysokość okna
     if (!container.offsetHeight) {
       container.style.height = `${window.innerHeight}px`;
     }
@@ -496,7 +581,6 @@ export const Map3DScene = ({
 
       mapRef.current = map;
 
-      // Kontrolki
       map.addControl(new NavigationControl({ visualizePitch: true }), "top-right");
       map.touchZoomRotate.enable();
       map.touchZoomRotate.enableRotation();
@@ -506,7 +590,6 @@ export const Map3DScene = ({
         setMapError(null);
         ensureBuildingLayer(map);
 
-        // Wymuszenie resize po pierwszym załadowaniu mapy
         setTimeout(() => map.resize(), 200);
       };
 
@@ -545,7 +628,6 @@ export const Map3DScene = ({
       map.on("pitchend", handleInteractionEnd);
       if (VECTOR_STYLE_URL.length > 0) map.on("error", handleStyleError);
 
-      // Obsługa resize dla mobilnych viewportów
       const scheduleResize = () => map.resize();
       const handleResize = () => scheduleResize();
 
@@ -555,6 +637,7 @@ export const Map3DScene = ({
 
       const markerStoreForCleanup = markerStoreRef.current;
       const markerStateForCleanup = markerStateRef.current;
+      const edustopMarkerStoreForCleanup = edustopMarkerStoreRef.current;
       const userMarkerForCleanup = userMarkerRef.current;
 
       return () => {
@@ -581,6 +664,10 @@ export const Map3DScene = ({
         }
         markerStoreForCleanup.clear();
         markerStateForCleanup.clear();
+        for (const record of edustopMarkerStoreForCleanup.values()) {
+          record.marker.remove();
+        }
+        edustopMarkerStoreForCleanup.clear();
         if (userMarkerForCleanup) {
           userMarkerForCleanup.remove();
           userMarkerRef.current = null;
@@ -644,6 +731,38 @@ export const Map3DScene = ({
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+
+    const activeIds = new Set<string>();
+
+    for (const stop of edustops) {
+      activeIds.add(stop._id);
+      const existing = edustopMarkerStoreRef.current.get(stop._id);
+      if (existing) {
+        existing.edustop = stop;
+        existing.marker.setLngLat([stop.coordinates.longitude, stop.coordinates.latitude]);
+        const label = existing.element.querySelector<HTMLSpanElement>(".edustop-task-marker__label");
+        if (label) {
+          label.textContent = stop.name;
+        }
+      } else {
+        const record = createEdustopMarker(map, stop);
+        edustopMarkerStoreRef.current.set(stop._id, record);
+      }
+    }
+
+    for (const [id, record] of edustopMarkerStoreRef.current.entries()) {
+      if (!activeIds.has(id)) {
+        record.marker.remove();
+        edustopMarkerStoreRef.current.delete(id);
+      }
+    }
+  }, [createEdustopMarker, edustops]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (!mapReady || !map) {
       return;
     }
@@ -657,7 +776,15 @@ export const Map3DScene = ({
 
     syncUserMarker(map, livePosition);
     updateMarkersForPosition(livePosition);
-  }, [livePosition, mapReady, resetMarkerScales, syncUserMarker, updateMarkersForPosition]);
+    updateEdustopMarkersForPosition(livePosition);
+  }, [
+    livePosition,
+    mapReady,
+    resetMarkerScales,
+    syncUserMarker,
+    updateMarkersForPosition,
+    updateEdustopMarkersForPosition,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -3,6 +3,61 @@ export interface Coordinates {
   longitude: number;
 }
 
+export interface EduStopSummary {
+  _id: string;
+  name: string;
+  coordinates: Coordinates;
+}
+
+export interface EduStopTaskOption {
+  key: string;
+  text: string;
+}
+
+interface UnknownEduStopTaskTypeBrand {
+  readonly __edustopTaskTypeBrand?: never;
+}
+
+export type EduStopTaskQuestionType =
+  | "OPEN"
+  | "MULTIPLE_CHOICE"
+  | "TRUE_FALSE"
+  | (string & UnknownEduStopTaskTypeBrand);
+
+export interface EduStopTaskQuestion {
+  questionId: string;
+  content: string;
+  type?: EduStopTaskQuestionType;
+  options?: EduStopTaskOption[];
+  answers?: string[];
+  _class?: string;
+}
+
+export interface EduStopTaskContent {
+  subject: string;
+  title: string;
+  description: string;
+  questions: EduStopTaskQuestion[];
+}
+
+export interface EduStopTaskPayload {
+  taskId: string;
+  content: EduStopTaskContent;
+  accessToken: string;
+  tokenTTLMinutes: number;
+}
+
+export interface EduStopTaskAnswerPayload {
+  questionId: string;
+  answers: string[];
+}
+
+export interface EduStopTaskVerificationResult {
+  verified: boolean;
+  eduStopId: string;
+  taskId: string;
+}
+
 export interface SchoolSummary {
   _id: string;
   name: string;

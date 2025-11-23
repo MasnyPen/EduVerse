@@ -1,3 +1,4 @@
+import { isAxiosError } from "axios";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, BarChart3, Heart, Info, LogIn, School, Sparkles, X } from "lucide-react";
 import AppShell from "../components/AppShell";
@@ -6,10 +7,18 @@ import CalendarWidget from "../components/CalendarWidget";
 import Loader from "../components/Loader";
 import Map3DScene from "../components/Map3DScene";
 import SchoolModal from "../components/SchoolModal";
+import EdustopTaskModal from "../components/edustops/EdustopTaskModal";
 import { getSchoolsWithinRadius } from "../api/schools";
-import type { Coordinates, SchoolSummary } from "../types";
+import { requestEduStopTask, searchEduStopsWithinRadius, verifyEduStopTask } from "../api/edustops";
+import type {
+  Coordinates,
+  EduStopSummary,
+  EduStopTaskAnswerPayload,
+  EduStopTaskPayload,
+  SchoolSummary,
+} from "../types";
 import { MAP_DEFAULT_RADIUS_METERS } from "../utils/constants";
-import { annotateDistances } from "../utils/distance";
+import { annotateDistances, haversine } from "../utils/distance";
 import { getCurrentPosition, watchUserPosition } from "../utils/geolocation";
 import { getVoivodeshipFromCoordinates } from "../utils/calendar";
 import { useCalendarSchedule } from "../hooks/useCalendarSchedule";
@@ -18,6 +27,63 @@ import { useUserStore, type UserStoreState } from "../store/userStore";
 
 const MAX_LISTED_SCHOOLS = 5;
 type MobilePanel = "greeting" | "schools" | "stats";
+type TaskFeedback = {
+  type: "success" | "error";
+  message: string;
+  correctAnswers?: Record<string, string[]>;
+  userAnswers?: Record<string, string[]>;
+};
+
+interface MapErrorOverlaysProps {
+  geoError: string | null;
+  schoolsError: string | null;
+  edustopError: string | null;
+}
+
+const MapErrorOverlays = ({ geoError, schoolsError, edustopError }: MapErrorOverlaysProps) => (
+  <>
+    {geoError ? (
+      <div className="absolute bottom-40 left-4 z-20 max-w-xs rounded-2xl bg-rose-100/90 px-4 py-3 text-sm font-semibold text-rose-700 shadow-lg sm:left-6 lg:bottom-12">
+        <span className="flex items-center gap-2">
+          <AlertCircle className="size-4" />
+          {geoError}
+        </span>
+      </div>
+    ) : null}
+    {schoolsError ? (
+      <div className="absolute bottom-40 right-4 z-20 max-w-xs rounded-2xl bg-amber-100/90 px-4 py-3 text-sm font-semibold text-amber-700 shadow-lg sm:right-6 lg:bottom-12">
+        <span className="flex items-center gap-2">
+          <AlertCircle className="size-4" />
+          {schoolsError}
+        </span>
+      </div>
+    ) : null}
+    {edustopError ? (
+      <div className="absolute bottom-24 right-4 z-20 max-w-xs rounded-2xl bg-indigo-100/90 px-4 py-3 text-sm font-semibold text-indigo-800 shadow-lg sm:right-6 lg:bottom-16">
+        <span className="flex items-center gap-2">
+          <AlertCircle className="size-4" />
+          {edustopError}
+        </span>
+      </div>
+    ) : null}
+  </>
+);
+
+const resolveTaskError = (error: unknown): string => {
+  if (isAxiosError<{ message?: string | string[] }>(error)) {
+    const payload = error.response?.data;
+    if (Array.isArray(payload?.message) && payload?.message.length > 0) {
+      return payload.message[0];
+    }
+    if (typeof payload?.message === "string") {
+      return payload.message;
+    }
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return "Nie udało się pobrać zadania. Spróbuj ponownie.";
+};
 
 const Dashboard = () => {
   const { token, user, hydrateUser, likedSchools, unlockedSchools, like, unlike, unlock } = useUserStore(
@@ -35,11 +101,22 @@ const Dashboard = () => {
   const isAuthenticated = Boolean(token);
   const [userPosition, setUserPosition] = useState<Coordinates | null>(null);
   const [schools, setSchools] = useState<SchoolSummary[]>([]);
+  const [edustops, setEdustops] = useState<EduStopSummary[]>([]);
   const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
   const [isLoadingPosition, setIsLoadingPosition] = useState(true);
   const [isFetchingSchools, setIsFetchingSchools] = useState(false);
+  const [isFetchingEdustops, setIsFetchingEdustops] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
+  const [edustopError, setEdustopError] = useState<string | null>(null);
+  const [selectedEduStopId, setSelectedEduStopId] = useState<string | null>(null);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [activeTask, setActiveTask] = useState<EduStopTaskPayload | null>(null);
+  const [isRequestingTask, setIsRequestingTask] = useState(false);
+  const [isVerifyingTask, setIsVerifyingTask] = useState(false);
+  const [taskRequestError, setTaskRequestError] = useState<string | null>(null);
+  const [taskFeedback, setTaskFeedback] = useState<TaskFeedback | null>(null);
+  const [proximityEduStop, setProximityEduStop] = useState<EduStopSummary | null>(null);
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel | null>(null);
   const {
     title: todayTitle,
@@ -72,6 +149,7 @@ const Dashboard = () => {
   const bootstrappedUser = useRef(false);
   const latestPositionRef = useRef<Coordinates | null>(null);
   const isFetchingSchoolsRef = useRef(false);
+  const isFetchingEdustopsRef = useRef(false);
   const initialFetchDoneRef = useRef(false);
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
@@ -167,6 +245,33 @@ const Dashboard = () => {
     return true;
   }, []);
 
+  const fetchEduStops = useCallback(async (coords: Coordinates): Promise<boolean> => {
+    if (isFetchingEdustopsRef.current) {
+      return false;
+    }
+
+    isFetchingEdustopsRef.current = true;
+    setIsFetchingEdustops(true);
+
+    try {
+      const stops = await searchEduStopsWithinRadius({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        radiusKm: Math.max(MAP_DEFAULT_RADIUS_METERS / 1000, 1),
+      });
+      setEdustops(stops);
+      setEdustopError(null);
+    } catch (error) {
+      console.error("Nie udało się pobrać Edustopów", error);
+      setEdustopError("Nie udało się pobrać Edustopów w Twojej okolicy.");
+    } finally {
+      isFetchingEdustopsRef.current = false;
+      setIsFetchingEdustops(false);
+    }
+
+    return true;
+  }, []);
+
   useEffect(() => {
     let mounted = true;
 
@@ -210,7 +315,8 @@ const Dashboard = () => {
 
     initialFetchDoneRef.current = true;
     void fetchSchools(userPosition);
-  }, [userPosition, fetchSchools]);
+    void fetchEduStops(userPosition);
+  }, [userPosition, fetchSchools, fetchEduStops]);
 
   useEffect(() => {
     latestPositionRef.current = userPosition;
@@ -233,6 +339,10 @@ const Dashboard = () => {
   const selectedSchool = useMemo(
     () => (selectedSchoolId ? schools.find((school) => school._id === selectedSchoolId) ?? null : null),
     [schools, selectedSchoolId]
+  );
+  const selectedEduStop = useMemo(
+    () => (selectedEduStopId ? edustops.find((stop) => stop._id === selectedEduStopId) ?? null : null),
+    [edustops, selectedEduStopId]
   );
 
   const likedSchoolIds = useMemo(() => new Set(likedSchools), [likedSchools]);
@@ -280,9 +390,145 @@ const Dashboard = () => {
     if (!coords) {
       return false;
     }
-    const started = await fetchSchools(coords);
-    return started;
-  }, [fetchSchools, userPosition]);
+    const startedSchools = await fetchSchools(coords);
+    const startedEdustops = await fetchEduStops(coords);
+    return startedSchools || startedEdustops;
+  }, [fetchEduStops, fetchSchools, userPosition]);
+
+  const loadEduStopTask = useCallback(async (stopId: string) => {
+    setIsRequestingTask(true);
+    setTaskRequestError(null);
+    setTaskFeedback(null);
+    try {
+      const taskPayload = await requestEduStopTask(stopId);
+      setActiveTask(taskPayload);
+    } catch (error) {
+      setActiveTask(null);
+      setTaskRequestError(resolveTaskError(error));
+    } finally {
+      setIsRequestingTask(false);
+    }
+  }, []);
+
+  const handleSelectEduStop = useCallback(
+    (stop: EduStopSummary) => {
+      if (!userPosition) {
+        setTaskRequestError("Nie udało się ustalić Twojej lokalizacji.");
+        setIsTaskModalOpen(true);
+        return;
+      }
+      const distance = haversine(userPosition, stop.coordinates);
+      if (distance > 100) {
+        setProximityEduStop({ _id: "proximity", name: "Nie tak prędko!", coordinates: userPosition });
+        setTaskRequestError("Jesteś zbyt daleko od EduStopa. Podejdź bliżej (mniej niż 100m).");
+        setIsTaskModalOpen(true);
+        setActiveTask(null);
+        setTaskFeedback(null);
+        setSelectedEduStopId(null);
+        return;
+      }
+      setSelectedEduStopId(stop._id);
+      setIsTaskModalOpen(true);
+      setActiveTask(null);
+      setTaskFeedback(null);
+      setTaskRequestError(null);
+      void loadEduStopTask(stop._id);
+    },
+    [loadEduStopTask, userPosition]
+  );
+
+  const handleRetryTaskRequest = useCallback(() => {
+    if (!selectedEduStopId) {
+      return;
+    }
+    const stop = edustops.find((s) => s._id === selectedEduStopId);
+    if (!stop) {
+      return;
+    }
+    if (!userPosition) {
+      setTaskRequestError("Nie udało się ustalić Twojej lokalizacji.");
+      return;
+    }
+    const distance = haversine(userPosition, stop.coordinates);
+    if (distance > 100) {
+      setTaskRequestError("Jesteś zbyt daleko od EduStopa. Podejdź bliżej (mniej niż 100m).");
+      return;
+    }
+    setTaskRequestError(null);
+    void loadEduStopTask(selectedEduStopId);
+  }, [loadEduStopTask, selectedEduStopId, edustops, userPosition]);
+
+  const handleLoadNextTask = useCallback(() => {
+    if (!selectedEduStopId) {
+      return;
+    }
+    setTaskFeedback(null);
+    setTaskRequestError(null);
+    setActiveTask(null); // Clear old task immediately
+    void loadEduStopTask(selectedEduStopId);
+  }, [loadEduStopTask, selectedEduStopId]);
+
+  const handleCloseTaskModal = useCallback(() => {
+    setIsTaskModalOpen(false);
+    setSelectedEduStopId(null);
+    setProximityEduStop(null);
+    setActiveTask(null);
+    setTaskRequestError(null);
+    setTaskFeedback(null);
+  }, []);
+
+  const handleSubmitTaskAnswers = useCallback(
+    async (answers: EduStopTaskAnswerPayload[]) => {
+      if (!activeTask) {
+        return;
+      }
+      if (!user || !token) {
+        setTaskFeedback({
+          type: "error",
+          message: "Musisz być zalogowany, aby zweryfikować odpowiedzi na zadanie.",
+        });
+        return;
+      }
+      if (taskFeedback) {
+        // Already submitted, ignore
+        return;
+      }
+      setIsVerifyingTask(true);
+      setTaskFeedback(null);
+      try {
+        const result = await verifyEduStopTask(activeTask.accessToken, answers);
+        if (result.verified) {
+          setTaskFeedback({
+            type: "success",
+            message:
+              "Świetna robota! Zadanie zostało zaliczone (+2 punkty do rankingu), a Edustop wkrótce się zaktualizuje.",
+          });
+          void handleManualScan();
+          void hydrateUser(); // Refresh user data to update ranking
+        } else {
+          const correctAnswers: Record<string, string[]> = {};
+          const userAnswers: Record<string, string[]> = {};
+          for (const q of activeTask.content.questions) {
+            correctAnswers[q.questionId] = q.answers || [];
+          }
+          for (const ans of answers) {
+            userAnswers[ans.questionId] = ans.answers;
+          }
+          setTaskFeedback({
+            type: "error",
+            message: "To nie ta odpowiedź. Sprawdź zadanie i spróbuj ponownie.",
+            correctAnswers,
+            userAnswers,
+          });
+        }
+      } catch (error) {
+        setTaskFeedback({ type: "error", message: resolveTaskError(error) });
+      } finally {
+        setIsVerifyingTask(false);
+      }
+    },
+    [activeTask, handleManualScan, token, user, taskFeedback, hydrateUser]
+  );
 
   const displayName = (user?.displayName ?? user?.username ?? "Gościu").trim() || "Gościu";
   const greetingMessage = user ? `Witaj ${displayName}!` : `Witaj, ${displayName}!`;
@@ -354,18 +600,18 @@ const Dashboard = () => {
                       <div className="space-y-3">
                         <p>Miło Cię widzieć, {displayName}. Kontynuuj eksplorację EduVerse!</p>
                         <div className="grid gap-3">
-                          <div className="flex items-center justify-between rounded-2xl bg-slate-100 px-4 py-3">
-                            <span className="text-slate-500">Polubione szkoły</span>
+                          <div className="flex items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3">
+                            <span className="text-slate-500">Szkoły w pobliżu</span>
                             <span className="flex items-center gap-2 font-semibold text-slate-800">
-                              <Heart className="size-4 text-rose-500" />
-                              {likedSchools.length}
+                              <School className="size-4 text-emerald-600" />
+                              {schools.length}
                             </span>
                           </div>
-                          <div className="flex items-center justify-between rounded-2xl bg-slate-100 px-4 py-3">
-                            <span className="text-slate-500">Odblokowane szkoły</span>
+                          <div className="flex items-center justify-between rounded-2xl bg-purple-50 px-4 py-3">
+                            <span className="text-slate-500">Miejsce w rankingu</span>
                             <span className="flex items-center gap-2 font-semibold text-slate-800">
-                              <Sparkles className="size-4 text-amber-500" />
-                              {unlockedSchools.length}
+                              <BarChart3 className="size-4 text-purple-600" />
+                              {user?.rankingPosition ?? "?"}
                             </span>
                           </div>
                         </div>
@@ -425,18 +671,18 @@ const Dashboard = () => {
             case "stats":
               return (
                 <div className="grid grid-cols-1 gap-3">
-                  <div className="flex items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3">
-                    <span className="text-sm font-semibold text-emerald-600">Szkoły</span>
-                    <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-                      <School className="size-4 text-emerald-500" />
-                      {schools.length}
-                    </span>
-                  </div>
                   <div className="flex items-center justify-between rounded-2xl bg-amber-50 px-4 py-3">
-                    <span className="text-sm font-semibold text-amber-600">Odblokowane</span>
+                    <span className="text-sm font-semibold text-amber-600">Odblokowane szkoły</span>
                     <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
                       <Sparkles className="size-4 text-amber-500" />
                       {unlockedSchoolIds.size}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl bg-rose-50 px-4 py-3">
+                    <span className="text-sm font-semibold text-rose-600">Polubione szkoły</span>
+                    <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+                      <Heart className="size-4 text-rose-500" />
+                      {likedSchools.length}
                     </span>
                   </div>
                 </div>
@@ -458,29 +704,16 @@ const Dashboard = () => {
               unlockedSchoolIds={unlockedSchoolIds}
               likedSchoolIds={likedSchoolIds}
               onScan={handleManualScan}
-              isRefreshing={isFetchingSchools}
+              isRefreshing={isFetchingSchools || isFetchingEdustops}
+              edustops={edustops}
+              onSelectEduStop={handleSelectEduStop}
             />
-            {(isLoadingPosition || isFetchingSchools) && (
+            {(isLoadingPosition || isFetchingSchools || isFetchingEdustops) && (
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur">
                 <Loader />
               </div>
             )}
-            {geoError ? (
-              <div className="absolute bottom-40 left-4 z-20 max-w-xs rounded-2xl bg-rose-100/90 px-4 py-3 text-sm font-semibold text-rose-700 shadow-lg sm:left-6 lg:bottom-12">
-                <span className="flex items-center gap-2">
-                  <AlertCircle className="size-4" />
-                  {geoError}
-                </span>
-              </div>
-            ) : null}
-            {schoolsError ? (
-              <div className="absolute bottom-40 right-4 z-20 max-w-xs rounded-2xl bg-amber-100/90 px-4 py-3 text-sm font-semibold text-amber-700 shadow-lg sm:right-6 lg:bottom-12">
-                <span className="flex items-center gap-2">
-                  <AlertCircle className="size-4" />
-                  {schoolsError}
-                </span>
-              </div>
-            ) : null}
+            <MapErrorOverlays geoError={geoError} schoolsError={schoolsError} edustopError={edustopError} />
           </div>
           <div className="hidden lg:flex flex-col gap-6">
             <div className="rounded-3xl bg-white p-6 shadow ring-1 ring-black/5">
@@ -516,6 +749,13 @@ const Dashboard = () => {
                     <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
                       <Sparkles className="size-4 text-amber-500" />
                       {unlockedSchools.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                    <span className="text-sm font-medium text-slate-500">Miejsce w rankingu</span>
+                    <span className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+                      <BarChart3 className="size-4 text-sky-500" />
+                      {user?.ranking ?? 0}
                     </span>
                   </div>
                 </div>
@@ -646,6 +886,20 @@ const Dashboard = () => {
           </div>
         </div>
       ) : null}
+
+      <EdustopTaskModal
+        open={isTaskModalOpen}
+        edustop={selectedEduStop || proximityEduStop}
+        task={activeTask}
+        isLoadingTask={isRequestingTask}
+        isSubmitting={isVerifyingTask}
+        error={taskRequestError}
+        feedback={taskFeedback}
+        onSubmit={handleSubmitTaskAnswers}
+        onClose={handleCloseTaskModal}
+        onRetry={handleRetryTaskRequest}
+        onLoadNextTask={handleLoadNextTask}
+      />
 
       <CalendarModal
         open={isCalendarOpen}

@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Map as MapLibreMap, Marker, NavigationControl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { ArrowLeft, Calendar, LogOut, MapPin, Settings } from "lucide-react";
+import { ArrowLeft, Calendar, LogOut, MapPinned, MapPin, Settings } from "lucide-react";
 import type { Coordinates } from "../types";
+import EdustopManagerMap from "../components/edustops/EdustopManagerMap";
 
 const Developer = () => {
   const navigate = useNavigate();
@@ -262,6 +263,16 @@ const Developer = () => {
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="rounded-3xl bg-white p-5 shadow ring-1 ring-black/5 sm:p-6 lg:p-8">
+          <div className="mb-6 flex items-center gap-4">
+            <div className="rounded-full bg-indigo-500 p-3">
+              <MapPinned className="size-7 text-white sm:size-8" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-700 sm:text-2xl">Mapa Edustopów</h2>
+          </div>
+          <EdustopManagerMap />
         </div>
       </div>
     </div>
